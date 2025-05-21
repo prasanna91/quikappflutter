@@ -2066,7 +2066,7 @@ workflows:
         - *Inject_iOS_Firebase_Push
         - name: 🔐 Download code signing files
           script: |
-            echo "📥 Downloading signing files..."
+            echo "📥 Downloading signing files..." 
             wget "$CERT_URL" -O certificate.p12 || { echo "❌ Failed to download certificate"; exit 1; }
             wget "$PROFILE_URL" -O profile.mobileprovision || { echo "❌ Failed to download profile"; exit 1; }
             

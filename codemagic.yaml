@@ -1199,75 +1199,53 @@ definitions:
         echo "✅ AppBundle build completed."
 
     - &key_store
-      name: Setup Android keystore and insert Gradle signing block
+      name: Setup Android keystore and insert Gradle signing block (KTS)
       script: |
-        echo "📦 Downloading keystore..."
-        if curl -f -o android/app/keystore.jks "$KEY_STORE"; then
-          echo "✅ Keystore downloaded successfully."
-        else
-          echo "❌ Failed to download keystore."
-          exit 1
-        fi
+          echo "📦 Downloading keystore..."
+          if curl -f -o android/app/keystore.jks "$KEY_STORE"; then
+            echo "✅ Keystore downloaded successfully."
+          else
+            echo "❌ Failed to download keystore."
+            exit 1
+          fi
 
-        echo "📝 Writing key.properties..."
-        cat > android/key.properties <<EOF
-        storeFile=keystore.jks
-        storePassword=$CM_KEYSTORE_PASSWORD
-        keyAlias=$CM_KEY_ALIAS
-        keyPassword=$CM_KEY_PASSWORD
-        EOF
-
-        if [ -f android/key.properties ]; then
+          echo "📝 Writing key.properties..."
+          cat > android/key.properties <<EOF
+          storeFile=keystore.jks
+          storePassword=$CM_KEYSTORE_PASSWORD
+          keyAlias=$CM_KEY_ALIAS
+          keyPassword=$CM_KEY_PASSWORD
+          EOF
+          
+          if [ -f android/key.properties ]; then
           echo "✅ key.properties written successfully."
-        else
+          else
           echo "❌ Failed to write key.properties."
           exit 1
-        fi
-
-        echo "📦 Injecting dynamic signing configs..."
-
-          GRADLE_FILE="android/app/build.gradle"
-          SIGNING_BLOCK=$(cat <<EOF
-          release {
-          storeFile file("keystore.jks")
-          storePassword project.findProperty("storePassword")
-          keyAlias project.findProperty("keyAlias")
-          keyPassword project.findProperty("keyPassword")
-          }
-          EOF
-          )
+          fi
           
-          BUILD_TYPE_BLOCK=$(cat <<EOF
-          release {
-          signingConfig signingConfigs.release
-          shrinkResources true
-          minifyEnabled true
-          proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
-          }
-          EOF
-          )
+          echo "📦 Injecting dynamic signing configs into Kotlin DSL..."
           
-        # Inject into signingConfigs
-        if grep -q "signingConfigs" "$GRADLE_FILE"; then
-          awk -v block="$SIGNING_BLOCK" '
-          /signingConfigs[ \t]*{/ && !x { print; print block; x=1; next }1
-          ' "$GRADLE_FILE" > tmp && mv tmp "$GRADLE_FILE"
-          echo "✅ Signing config injected."
-        else
-          echo "❌ signingConfigs block not found in build.gradle"
+          GRADLE_FILE="android/app/build.gradle.kts"
+          
+          # Insert signingConfigs block if not present
+          if ! grep -q "signingConfigs" "$GRADLE_FILE"; then
+          echo "🔧 Adding signingConfigs block..."
+          awk '/android\s*{/{print; print "    signingConfigs {\n        create(\"release\") {\n            storeFile = file(\"keystore.jks\")\n            storePassword = project.findProperty(\"storePassword\") as String\n            keyAlias = project.findProperty(\"keyAlias\") as String\n            keyPassword = project.findProperty(\"keyPassword\") as String\n        }\n    }"; next}1' "$GRADLE_FILE" > tmp && mv tmp "$GRADLE_FILE"
+          echo "✅ signingConfigs block added."
+          else
+          echo "✅ signingConfigs block already exists."
+          fi
+          
+          # Inject release buildType
+          if grep -q "buildTypes" "$GRADLE_FILE"; then
+          echo "🔧 Updating buildTypes.release block..."
+          awk '/buildTypes\s*{/{print; print "        getByName(\"release\") {\n            signingConfig = signingConfigs.getByName(\"release\")\n            isMinifyEnabled = true\n            isShrinkResources = true\n            proguardFiles(getDefaultProguardFile(\"proguard-android-optimize.txt\"), \"proguard-rules.pro\")\n        }"; next}1' "$GRADLE_FILE" > tmp && mv tmp "$GRADLE_FILE"
+          echo "✅ buildTypes.release block injected."
+          else
+          echo "❌ buildTypes block not found in $GRADLE_FILE"
           exit 1
-        fi
-
-        # Inject into buildTypes
-        if grep -q "buildTypes" "$GRADLE_FILE"; then
-          awk -v block="$BUILD_TYPE_BLOCK" '
-          /buildTypes[ \t]*{/ && !x { print; print block; x=1; next }1
-          ' "$GRADLE_FILE" > tmp && mv tmp "$GRADLE_FILE"
-          echo "✅ Release build type injected."
-        else
-          echo "❌ buildTypes block not found in build.gradle"
-          exit 1
-        fi
+          fi
     - &Setup_IOS
       name: Setting Up IOS Build
       script: |

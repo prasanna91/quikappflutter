@@ -570,70 +570,65 @@ definitions:
       name: Inject Google Services Plugin
       script: |
         #!/usr/bin/env bash
-          set -e
-          
-          if [ "$PUSH_NOTIFY" = "true" ]; then
+        set -e
+
+        if [ "$PUSH_NOTIFY" = "true" ]; then
           echo "✅ Google Services Plugin: Start injecting..."
-        
+
+          # ─── Set plugin classpath and desugaring dependency ───
           FIREBASE_CLASSPATH='classpath("com.google.gms:google-services:4.3.15")'
-          CLD_DEP='implementation("com.android.tools:desugar_jdk_libs:2.0.4")'
-        
-          # ========== android/build.gradle.kts ==========
-         # Inject into android/build.gradle.kts
+          DESUGAR_DEP='implementation("com.android.tools:desugar_jdk_libs:2.0.4")'
+
+          echo "🔧 Ensuring Firebase Plugin for Kotlin DSL..."
+
+          # ─── Inject into android/build.gradle.kts (project-level) ───
           if ! grep -q "com.google.gms:google-services" android/build.gradle.kts; then
-          echo "🔧 Adding Firebase classpath to android/build.gradle.kts..."
-          awk '/buildscript\s*{/{print; print "    dependencies {\n        classpath(\"com.google.gms:google-services:4.3.15\")\n    }"; next}1' android/build.gradle.kts > tmp && mv tmp android/build.gradle.kts
-          fi
-        
-          # Inject into android/app/build.gradle.kts
-          if ! grep -q "com.google.gms.google-services" android/app/build.gradle.kts; then
-          echo "apply(plugin = \"com.google.gms.google-services\")" >> android/app/build.gradle.kts
-          fi
-        
-          #          if ! grep -q 'com.google.gms:google-services' android/build.gradle.kts; then
-          #          echo "✅ Firebase classpath not found in android/build.gradle.kts, injecting..."
-          #          
-          #          # Insert into dependencies block
-          #          sed -i.bak '/dependencies {/a\
-          #          '"$FIREBASE_CLASSPATH"'
-          #          ' android/build.gradle.kts
-          #          echo "✅ Firebase classpath injected"
-          #          else
-          #          echo "✅ Firebase classpath already present"
-          #          fi
-          #        
-          # ========== android/app/build.gradle.kts ==========
-         
-          if ! grep -q 'com.google.gms.google-services' android/app/build.gradle.kts; then
-          echo "✅ Applying Google Services plugin to app/build.gradle.kts"
-          
-          sed -i.bak '/plugins {/a\
-          id("com.google.gms.google-services")
-          ' android/app/build.gradle.kts
-          echo "✅ Plugin applied"
+            echo "🔧 Adding Firebase classpath..."
+            awk '
+            /buildscript *{/ { print; in_block=1; next }
+            in_block && /dependencies *{/ {
+              print; print "        classpath(\"com.google.gms:google-services:4.3.15\")"; in_block=0; next
+            }
+            { print }
+            ' android/build.gradle.kts > tmp && mv tmp android/build.gradle.kts
+            echo "✅ Classpath injected."
           else
-          echo "✅ Google Services plugin already applied"
-          fi
-        
-          echo "✅ Adding desugaring dependency"
-          if ! grep -q 'desugar_jdk_libs' android/app/build.gradle.kts; then
-          sed -i.bak '/dependencies {/a\
-          coreLibraryDesugaring('"$CLD_DEP"')
-          ' android/app/build.gradle.kts
-          fi
-        
-          echo "✅ Ensuring desugaring is enabled in compileOptions"
-          if ! grep -q 'coreLibraryDesugaringEnabled = true' android/app/build.gradle.kts; then
-          sed -i.bak '/compileOptions {/a\
-          isCoreLibraryDesugaringEnabled = true
-          ' android/app/build.gradle.kts
-          fi
-          
-          else
-          echo "🚫 Firebase config skipped (PUSH_NOTIFY is not true)"
+            echo "✅ Firebase classpath already exists."
           fi
 
-#        set -e
+          # ─── Inject plugin in android/app/build.gradle.kts (app-level) ───
+          if ! grep -q 'id("com.google.gms.google-services")' android/app/build.gradle.kts; then
+            echo "🔧 Applying Google Services plugin..."
+            sed -i '' '/plugins {/a\
+            id("com.google.gms.google-services")
+            ' android/app/build.gradle.kts
+            echo "✅ Plugin applied."
+          else
+            echo "✅ Google Services plugin already applied."
+          fi
+
+          # ─── Add desugar dependency ───
+          if ! grep -q 'desugar_jdk_libs' android/app/build.gradle.kts; then
+            echo "🔧 Adding desugar_jdk_libs dependency..."
+            sed -i '' '/dependencies {/a\
+            coreLibraryDesugaring('"$DESUGAR_DEP"')
+            ' android/app/build.gradle.kts
+          fi
+
+          # ─── Enable desugaring in compileOptions ───
+          if ! grep -q 'isCoreLibraryDesugaringEnabled = true' android/app/build.gradle.kts; then
+            echo "🔧 Enabling desugaring in compileOptions..."
+            sed -i '' '/compileOptions {/a\
+            isCoreLibraryDesugaringEnabled = true
+            ' android/app/build.gradle.kts
+          fi
+
+        else
+          echo "🚫 Firebase config skipped (PUSH_NOTIFY is not true)"
+        fi
+    
+
+    #        set -e
 #
 #          if [ "$PUSH_NOTIFY" = "true" ]; then
 #          echo "✅ Google Services Plugin: Start injecting..."

@@ -210,18 +210,13 @@ class _MainHomeState extends State<MainHome> {
       webViewController?.loadUrl(
         urlRequest: URLRequest(url: WebUri(internalUrl)),
       );
-    } else {
-      debugPrint('🔗 No URL to navigate');
     }
   }
 
   /// ✅ Setup push notification logic
   void setupFirebaseMessaging() async {
-
     try {
       FirebaseMessaging messaging = FirebaseMessaging.instance;
-
-      // Request permission FIRST (required for iOS)
       NotificationSettings settings = await messaging.requestPermission(
         alert: true,
         badge: true,
@@ -229,8 +224,8 @@ class _MainHomeState extends State<MainHome> {
       );
 
       if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-        // ✅ Subscribe to common and platform-specific topics
         await messaging.subscribeToTopic('all_users');
+        // Platform-specific topics
         if (Platform.isAndroid) {
           await messaging.subscribeToTopic('android_users');
         } else if (Platform.isIOS) {
@@ -262,102 +257,23 @@ class _MainHomeState extends State<MainHome> {
   }
 
 
-  /// ✅ Setup push notification logic
-  // void setupFirebaseMessaging() async {
-  //
-  //   try {
-  //     FirebaseMessaging messaging = FirebaseMessaging.instance;
-  //
-  //     // Request permission FIRST (required for iOS)
-  //     NotificationSettings settings = await messaging.requestPermission(
-  //       alert: true,
-  //       badge: true,
-  //       sound: true,
-  //     );
-  //
-  //     if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-  //       // ✅ Subscribe to common and platform-specific topics
-  //       await messaging.subscribeToTopic('all_users');
-  //       if (Platform.isAndroid) {
-  //         await messaging.subscribeToTopic('android_users');
-  //       } else if (Platform.isIOS) {
-  //         await messaging.subscribeToTopic('ios_users');
-  //       }
-  //     } else {
-  //       if (kDebugMode) {
-  //         print("Notification permission not granted.");
-  //       }
-  //     }
-  //
-  //     // ✅ Listen for foreground messages
-  //     FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
-  //       await _showLocalNotification(message);
-  //       _handleNotificationNavigation(message);
-  //     });
-  //
-  //     // ✅ Handle background tap
-  //     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-  //       debugPrint("📲 Opened from background tap: ${message.data}");
-  //       _handleNotificationNavigation(message);
-  //     });
-  //
-  //   } catch (e) {
-  //     print("❌ Error during Firebase Messaging setup: $e");
-  //   }
-  // }
-
-
-  // void setupFirebaseMessaging() async {
-  //   try {
-  //   FirebaseMessaging messaging = FirebaseMessaging.instance;
-  //
-  //   if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-  //   if (Platform.isIOS) {
-  //     await messaging.requestPermission(alert: true, badge: true, sound: true);
-  //   }
-  //
-  //   await messaging.subscribeToTopic('all_users');
-  //   if (Platform.isAndroid) {
-  //     await messaging.subscribeToTopic('android_users');
-  //   } else if (Platform.isIOS) {
-  //     await messaging.subscribeToTopic('ios_users');
-  //   }
-  //   } else {
-  //     print("Notification permission not granted.");
-  //   }
-  //   } catch (e) {
-  //     print("Error during Firebase Messaging setup: $e");
-  //   }
-  //   FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
-  //     await _showLocalNotification(message);
-  //     _handleNotificationNavigation(message);
-  //   });
-  //
-  //   FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-  //     debugPrint("📲 Opened from background tap: ${message.data}");
-  //     _handleNotificationNavigation(message);
-  //   });
-  // }
-
   /// ✅ Local push with optional image
   Future<void> _showLocalNotification(RemoteMessage message) async {
     final notification = message.notification;
     final android = notification?.android;
     final imageUrl = notification?.android?.imageUrl ?? message.data['image'];
 
-    AndroidNotificationDetails androidDetails;
-
-    AndroidNotificationDetails defaultAndroidDetails() {
-      return AndroidNotificationDetails(
-        'default_channel',
-        'Default',
-        channelDescription: 'Default notification channel',
-        importance: Importance.max,
-        priority: Priority.high,
-        playSound: true,
-        icon: '@mipmap/ic_launcher',
-      );
-    }
+    AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      'default_channel',
+      'Default',
+      channelDescription: 'Default notification channel',
+      importance: Importance.max,
+      priority: Priority.high,
+      actions: <AndroidNotificationAction>[
+        AndroidNotificationAction('id_1', 'View'),
+        AndroidNotificationAction('id_2', 'Dismiss'),
+      ],
+    );
 
     if (notification != null && android != null) {
       if (imageUrl != null && imageUrl.isNotEmpty) {
@@ -389,17 +305,29 @@ class _MainHomeState extends State<MainHome> {
           if (kDebugMode) {
             print('❌ Failed to load image: $e');
           }
-          androidDetails = defaultAndroidDetails();
+          androidDetails = androidDetails;
         }
       } else {
-        androidDetails = defaultAndroidDetails();
+        androidDetails = androidDetails;
       }
+
+      final DarwinNotificationDetails iOSDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+        attachments: imageUrl != null ? [DarwinNotificationAttachment(imageUrl)] : null,
+      );
+
+      NotificationDetails platformDetails = NotificationDetails(
+        android: androidDetails,
+        iOS: iOSDetails,
+      );
 
       flutterLocalNotificationsPlugin.show(
         notification.hashCode,
         notification.title,
         notification.body,
-        NotificationDetails(android: androidDetails),
+        platformDetails,
       );
     }
   }

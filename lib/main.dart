@@ -9,87 +9,112 @@ import '../module/myapp.dart';
 import '../services/notification_service.dart';
 import '../utils/menu_parser.dart';
 
-// Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-//   if (kDebugMode) {
-//     print("Handling a background message: ${message.messageId}");
-//   }
-// }
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  if (kDebugMode) {
+    print("🔔 Handling a background message: ${message.messageId}");
+    print("📝 Message data: ${message.data}");
+    print("📌 Notification: ${message.notification?.title}");
+  }
+}
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  // Lock orientation to portrait only
-  await SystemChrome.setPreferredOrientations([
-  DeviceOrientation.portraitUp,
-  // DeviceOrientation.portraitDown,
-  ]);
+  try {
+    WidgetsFlutterBinding.ensureInitialized();
+    
+    // Lock orientation to portrait only
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+    ]);
 
-  await initLocalNotifications();
+    // Initialize local notifications first
+    await initLocalNotifications();
 
-  if (pushNotify) {
-    await initializeFirebaseMessaging();
-  } else {
-    debugPrint("🚫 Firebase not initialized (pushNotify: $pushNotify, isWeb: $kIsWeb)");
-  }
+    if (pushNotify) {
+      try {
+        // Initialize Firebase with options from google-services.json
+        await Firebase.initializeApp(
+          options: await loadFirebaseOptionsFromJson(),
+        );
 
-  if (webUrl.isEmpty) {
-    debugPrint("❗ Missing WEB_URL environment variable.");
+        // Set background message handler
+        FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+        // Initialize Firebase Messaging
+        await initializeFirebaseMessaging();
+
+        debugPrint("✅ Firebase initialized successfully");
+      } catch (e) {
+        debugPrint("❌ Firebase initialization error: $e");
+      }
+    } else {
+      debugPrint("🚫 Firebase not initialized (pushNotify: $pushNotify, isWeb: $kIsWeb)");
+    }
+
+    if (webUrl.isEmpty) {
+      debugPrint("❗ Missing WEB_URL environment variable.");
+      runApp(MaterialApp(
+        home: Scaffold(
+          body: Center(child: Text("WEB_URL not configured.")),
+        ),
+      ));
+      return;
+    }
+
+    debugPrint("""
+      🛠 Runtime Config:
+      - pushNotify: $pushNotify
+      - webUrl: $webUrl
+      - isSplash: $isSplashEnabled,
+      - splashLogo: $splashUrl,
+      - splashBg: $splashBgUrl,
+      - splashDuration: $splashDuration,
+      - splashAnimation: $splashAnimation,
+      - taglineColor: $splashTaglineColor,
+      - spbgColor: $splashBgColor,
+      - isBottomMenu: $isBottomMenu,
+      - bottomMenuItems: ${parseBottomMenuItems(bottomMenuRaw)},
+      - isDeeplink: $isDeepLink,
+      - backgroundColor: $bottomMenuBgColor,
+      - activeTabColor: $bottomMenuActiveTabColor,
+      - textColor: $bottomMenuTextColor,
+      - iconColor: $bottomMenuIconColor,
+      - iconPosition: $bottomMenuIconPosition,
+      - Permissions:
+        - Camera: $isCameraEnabled
+        - Location: $isLocationEnabled
+        - Mic: $isMicEnabled
+        - Notification: $isNotificationEnabled
+        - Contact: $isContactEnabled
+      """);
+
+    runApp(MyApp(
+      webUrl: webUrl,
+      isSplash: isSplashEnabled,
+      splashLogo: splashUrl,
+      splashBg: splashBgUrl,
+      splashDuration: splashDuration,
+      splashAnimation: splashAnimation,
+      taglineColor: splashTaglineColor,
+      spbgColor: splashBgColor,
+      isBottomMenu: isBottomMenu,
+      bottomMenuItems: bottomMenuRaw,
+      isDeeplink: isDeepLink,
+      backgroundColor: bottomMenuBgColor,
+      activeTabColor: bottomMenuActiveTabColor,
+      textColor: bottomMenuTextColor,
+      iconColor: bottomMenuIconColor,
+      iconPosition: bottomMenuIconPosition,
+      isLoadIndicator: isLoadIndicator,
+    ));
+  } catch (e, stackTrace) {
+    debugPrint("❌ Fatal error during initialization: $e");
+    debugPrint("Stack trace: $stackTrace");
     runApp(MaterialApp(
       home: Scaffold(
-        body: Center(child: Text("WEB_URL not configured.")),
+        body: Center(child: Text("Fatal error: $e")),
       ),
     ));
-    return;
   }
-
-
-  debugPrint("""
-    🛠 Runtime Config:
-    - pushNotify: $pushNotify
-    - webUrl: $webUrl
-    - isSplash: $isSplashEnabled,
-    - splashLogo: $splashUrl,
-    - splashBg: $splashBgUrl,
-    - splashDuration: $splashDuration,
-    - splashAnimation: $splashAnimation,
-    - taglineColor: $splashTaglineColor,
-    - spbgColor: $splashBgColor,
-    - isBottomMenu: $isBottomMenu,
-    - bottomMenuItems: ${parseBottomMenuItems(bottomMenuRaw)},
-    - isDeeplink: $isDeepLink,
-    - backgroundColor: $bottomMenuBgColor,
-    - activeTabColor: $bottomMenuActiveTabColor,
-    - textColor: $bottomMenuTextColor,
-    - iconColor: $bottomMenuIconColor,
-    - iconPosition: $bottomMenuIconPosition,
-    - Permissions:
-      - Camera: $isCameraEnabled
-      - Location: $isLocationEnabled
-      - Mic: $isMicEnabled
-      - Notification: $isNotificationEnabled
-      - Contact: $isContactEnabled
-    """);
-
-  runApp(MyApp(
-    webUrl: webUrl,
-    isSplash: isSplashEnabled,
-    splashLogo: splashUrl,
-    splashBg: splashBgUrl,
-    splashDuration: splashDuration,
-    splashAnimation: splashAnimation,
-    taglineColor: splashTaglineColor,
-    spbgColor: splashBgColor,
-    isBottomMenu: isBottomMenu,
-    bottomMenuItems: bottomMenuRaw,
-    isDeeplink: isDeepLink,
-    backgroundColor: bottomMenuBgColor,
-    activeTabColor: bottomMenuActiveTabColor,
-    textColor: bottomMenuTextColor,
-    iconColor: bottomMenuIconColor,
-    iconPosition: bottomMenuIconPosition,
-    isLoadIndicator: isLoadIndicator,
-  ));
 }
-// ✅ This is required before using FirebaseMessaging or any Firebase service
-// await Firebase.initializeApp(
-//   options: await loadFirebaseOptionsFromJson(),
-// );

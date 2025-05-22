@@ -23,23 +23,28 @@ void main() async {
   ]);
 
 
-  if (pushNotify) {
+
     try {
-      await initLocalNotifications();
+      if (pushNotify == true) {
+      // ✅ This is required before using FirebaseMessaging or any Firebase service
       await Firebase.initializeApp();
+      await initLocalNotifications();
+      debugPrint("Firebase initialized (pushNotify: $pushNotify) by await Firebase.initializeApp();");
+      // await Firebase.initializeApp();
       FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
       if (kDebugMode) {
         print("✅ Firebase initialized successfully");
       }
       await initializeFirebaseMessaging();
+      } else {
+        debugPrint("🚫 Firebase not initialized (pushNotify: $pushNotify)");
+      }
     } catch (e) {
       if (kDebugMode) {
         print("🚨 Firebase initialization failed: $e");
       }
     }
-  } else {
-    debugPrint("🚫 Firebase not initialized (pushNotify: $pushNotify)");
-  }
+
 
   if (webUrl.isEmpty) {
     debugPrint("❗ Missing WEB_URL environment variable.");

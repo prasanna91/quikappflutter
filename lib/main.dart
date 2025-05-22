@@ -9,44 +9,27 @@ import '../module/myapp.dart';
 import '../services/notification_service.dart';
 import '../utils/menu_parser.dart';
 
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  if (kDebugMode) {
-    print("Handling a background message: ${message.messageId}");
-  }
-}
+// Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+//   if (kDebugMode) {
+//     print("Handling a background message: ${message.messageId}");
+//   }
+// }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-
-
-    try {
-      if (pushNotify) {
-
-        await Firebase.initializeApp();
-        await initLocalNotifications();
-        debugPrint("Firebase initialized (pushNotify: $pushNotify) by await Firebase.initializeApp();");
-        // await Firebase.initializeApp();
-        FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-        await initializeFirebaseMessaging();
-        if (kDebugMode) {
-          print("✅ Firebase initialized successfully");
-        }
-
-        } else {
-          debugPrint("🚫 Firebase not initialized (pushNotify: $pushNotify)");
-        }
-    } catch (e) {
-      if (kDebugMode) {
-        print("🚨 Firebase initialization failed: $e");
-      }
-    }
-
-// Lock orientation to portrait only
+  // Lock orientation to portrait only
   await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    // DeviceOrientation.portraitDown,
+  DeviceOrientation.portraitUp,
+  // DeviceOrientation.portraitDown,
   ]);
+
+  await initLocalNotifications();
+
+  if (pushNotify) {
+    await initializeFirebaseMessaging();
+  } else {
+    debugPrint("🚫 Firebase not initialized (pushNotify: $pushNotify, isWeb: $kIsWeb)");
+  }
 
   if (webUrl.isEmpty) {
     debugPrint("❗ Missing WEB_URL environment variable.");
@@ -57,6 +40,7 @@ void main() async {
     ));
     return;
   }
+
 
   debugPrint("""
     🛠 Runtime Config:

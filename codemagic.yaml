@@ -1881,19 +1881,71 @@ workflows:
       xcode: latest
       cocoapods: default
     scripts:
-      - *change_proj_name
-      - *debug_env
-      - *update_package_names
-      - *change_app_name
-      - *Update_SDK_Version
-      - *Update_App_Version
-      - *get_logo
-      - *get_splash
-      - *set_launcher_icons
-      - *Inject_iOS_Firebase_Push
-      - name: Set up environment and code signing
+      - name: Set up environment variables
         script: |
-          # Create a new keychain
+          # Validate required environment variables
+          REQUIRED_VARS=(
+            "VERSION_NAME"
+            "VERSION_CODE"
+            "APP_NAME"
+            "ORG_NAME"
+            "WEB_URL"
+            "PKG_NAME"
+            "BUNDLE_ID"
+            "EMAIL_ID"
+            "PUSH_NOTIFY"
+            "APPLE_TEAM_ID"
+            "CERT_URL"
+            "CERT_PASSWORD"
+            "PROFILE_URL"
+          )
+
+          for var in "${REQUIRED_VARS[@]}"; do
+            if [ -z "${!var}" ]; then
+              echo "❌ Required variable $var is not set"
+              exit 1
+            fi
+          done
+
+          echo "✅ All required variables are set"
+
+      - name: Update app metadata
+        script: |
+          # Update app name and version
+          flutter pub run rename setAppName --value "$APP_NAME"
+          flutter pub run rename setBundleId --value "$BUNDLE_ID"
+
+          # Update version in pubspec.yaml
+          sed -i'' -e "s/^version: .*/version: $VERSION_NAME+$VERSION_CODE/" pubspec.yaml
+
+      - name: Set up Firebase (if enabled)
+        script: |
+          if [ "$PUSH_NOTIFY" = "true" ]; then
+            echo "🔥 Setting up Firebase..."
+            
+            if [ -n "$firebase_config_ios" ]; then
+              mkdir -p ios/Runner
+              curl -o ios/Runner/GoogleService-Info.plist "$firebase_config_ios"
+              
+              if [ ! -f "ios/Runner/GoogleService-Info.plist" ]; then
+                echo "❌ Failed to download GoogleService-Info.plist"
+                exit 1
+              fi
+              
+              echo "✅ Firebase configuration downloaded"
+            else
+              echo "❌ firebase_config_ios URL not provided"
+              exit 1
+            fi
+          else
+            echo "⏭️ Skipping Firebase setup (PUSH_NOTIFY is false)"
+          fi
+
+      - name: Set up code signing
+        script: |
+          echo "🔐 Setting up code signing..."
+          
+          # Create keychain
           KEYCHAIN_NAME="build.keychain"
           KEYCHAIN_PASSWORD="temporary"
           
@@ -1903,12 +1955,16 @@ workflows:
           security set-keychain-settings -t 3600 -u "$KEYCHAIN_NAME"
           
           # Download and import certificate
+          echo "📥 Downloading signing certificate..."
           curl -o certificate.p12 "$CERT_URL"
+          
           security import certificate.p12 -k "$KEYCHAIN_NAME" -P "$CERT_PASSWORD" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_NAME"
           
-          # Download and set up provisioning profile
+          # Download and install provisioning profile
+          echo "📥 Downloading provisioning profile..."
           curl -o profile.mobileprovision "$PROFILE_URL"
+          
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           
           # Extract profile info
@@ -1917,7 +1973,6 @@ workflows:
           UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" "$PROFILE_PLIST")
           PROFILE_NAME=$(/usr/libexec/PlistBuddy -c "Print Name" "$PROFILE_PLIST")
           
-          # Install profile
           cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/"$UUID".mobileprovision
           
           # Export variables for later use
@@ -1948,13 +2003,6 @@ workflows:
           flutter clean
           flutter pub get
           
-           # Clean and setup pods
-          cd ios
-          rm -rf Pods Podfile.lock
-          pod repo update
-          pod install --repo-update
-          cd ..
-          
           # Build Flutter app
           flutter build ios --release --no-codesign \
             --dart-define=WEB_URL="$WEB_URL" \
@@ -1980,13 +2028,6 @@ workflows:
             --dart-define=BOTTOMMENU_BG_COLOR="$BOTTOMMENU_BG_COLOR" \
             --dart-define=BOTTOMMENU_ICON_COLOR="$BOTTOMMENU_ICON_COLOR" \
             --dart-define=BOTTOMMENU_TEXT_COLOR="$BOTTOMMENU_TEXT_COLOR" \
-            --dart-define=BOTTOMMENU_FONT="$BOTTOMMENU_FONT" \
-            --dart-define=BOTTOMMENU_FONT_SIZE="$BOTTOMMENU_FONT_SIZE" \
-            --dart-define=BOTTOMMENU_FONT_BOLD="$BOTTOMMENU_FONT_BOLD" \
-            --dart-define=BOTTOMMENU_FONT_ITALIC="$BOTTOMMENU_FONT_ITALIC" \
-            --dart-define=BOTTOMMENU_ACTIVE_TAB_COLOR="$BOTTOMMENU_ACTIVE_TAB_COLOR" \
-            --dart-define=BOTTOMMENU_ICON_POSITION="$BOTTOMMENU_ICON_POSITION" \
-            --dart-define=BOTTOMMENU_VISIBLE_ON="$BOTTOMMENU_VISIBLE_ON" \
             --dart-define=IS_DEEPLINK="$IS_DEEPLINK" \
             --dart-define=IS_LOAD_IND="$IS_LOAD_IND" \
             --dart-define=IS_CAMERA="$IS_CAMERA" \
@@ -1996,16 +2037,7 @@ workflows:
             --dart-define=IS_CONTACT="$IS_CONTACT" \
             --dart-define=IS_CALENDAR="$IS_CALENDAR" \
             --dart-define=IS_NOTIFICATION="$IS_NOTIFICATION" \
-            --dart-define=IS_STORAGE="$IS_STORAGE" \
-            --dart-define=firebase_config_android="$firebase_config_android" \
-            --dart-define=firebase_config_ios="$firebase_config_ios" \
-            --dart-define=APNS_KEY_ID="$APNS_KEY_ID" \
-            --dart-define=APPLE_TEAM_ID="$APPLE_TEAM_ID" \
-            --dart-define=APNS_AUTH_KEY_URL="$APNS_AUTH_KEY_URL" \
-            --dart-define=KEY_STORE="$KEY_STORE" \
-            --dart-define=CM_KEYSTORE_PASSWORD="$CM_KEYSTORE_PASSWORD" \
-            --dart-define=CM_KEY_ALIAS="$CM_KEY_ALIAS" \
-            --dart-define=CM_KEY_PASSWORD="$CM_KEY_PASSWORD" > flutter_build_ipa.log
+            --dart-define=IS_STORAGE="$IS_STORAGE" > flutter_build_ipa.log
 
       - name: Archive and export IPA
         script: |
@@ -2014,14 +2046,14 @@ workflows:
           # Load profile info from environment
           source $CM_ENV
           
-          # Create exportOptions.plist
+          # Create exportOptions.plist for ad-hoc distribution
           cat > exportOptions.plist << EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
               <key>method</key>
-              <string>app-store</string>
+              <string>ad-hoc</string>
               <key>teamID</key>
               <string>$APPLE_TEAM_ID</string>
               <key>signingStyle</key>

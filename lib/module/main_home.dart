@@ -14,12 +14,14 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:quikappflutter/config/env_config.dart';
 import 'package:quikappflutter/services/notification_service.dart';
+import 'package:quikappflutter/utils/menu_parser.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../config/trusted_domains.dart';
+// import '../utils/icon_parser.dart';
 
 
 
@@ -205,10 +207,10 @@ class _MainHomeState extends State<MainHome> {
 
   /// ✅ Navigation from notification
   void _handleNotificationNavigation(RemoteMessage message) {
-    final internalUrl = message.data['url'];
+    final internalUrl = message.data['url'] ;
     if (internalUrl != null && webViewController != null) {
       webViewController?.loadUrl(
-        urlRequest: URLRequest(url: WebUri(internalUrl)),
+        urlRequest: URLRequest(url: WebUri(internalUrl ?? widget.webUrl)),
       );
     }
   }
@@ -382,19 +384,7 @@ class _MainHomeState extends State<MainHome> {
           : _parseHexColor(widget.textColor),
     );
   }
-  // TextStyle _getMenuTextStyle(bool isActive) {
-  //   // Get the font family from your config or default to 'Open Sans'
-  //   final String fontFamily = widget.bottomMenuItems.first[bmfont] ?? 'Open Sans';
-  //
-  //   // Use GoogleFonts.getFont for dynamic font family
-  //   return GoogleFonts.getFont(
-  //     fontFamily,
-  //     fontSize: double.tryParse(widget.bottomMenuItems.first[bmfontSize] ?? '12') ?? 12,
-  //     fontWeight: (widget.bottomMenuItems.first[bmisBold] == 'true') ? FontWeight.bold : FontWeight.normal,
-  //     fontStyle: (widget.bottomMenuItems.first[bmisItalic] == 'true') ? FontStyle.italic : FontStyle.normal,
-  //     color: isActive ? _parseHexColor(widget.activeTabColor) : _parseHexColor(widget.textColor),
-  //   );
-  // }
+
 
   Widget _buildMenuItem(Map<String, dynamic> item, bool isActive) {
     final IconData iconData = _getIconByName(item['icon']);
@@ -420,207 +410,6 @@ class _MainHomeState extends State<MainHome> {
         return Column(mainAxisSize: MainAxisSize.min, children: [dspIcon, label]);
     }
   }
-
-
-
-  //
-  // IconData _getIconByName(String? name) {
-  //   if (name == null || name.trim().isEmpty) {
-  //     return Icons.apps; // Default icon
-  //   }
-  //
-  //   final lowerName = name.toLowerCase().trim();
-  //
-  //   final iconMap = {
-  //     'ac_unit': Icons.ac_unit,
-  //     'access_alarm': Icons.access_alarm,
-  //     'access_time': Icons.access_time,
-  //     'account_balance': Icons.account_balance,
-  //     'account_circle': Icons.account_circle,
-  //     'add': Icons.add,
-  //     'add_a_photo': Icons.add_a_photo,
-  //     'alarm': Icons.alarm,
-  //     'android': Icons.android,
-  //     'announcement': Icons.announcement,
-  //     'apps': Icons.apps,
-  //     'archive': Icons.archive,
-  //     'arrow_back': Icons.arrow_back,
-  //     'arrow_downward': Icons.arrow_downward,
-  //     'arrow_forward': Icons.arrow_forward,
-  //     'arrow_upward': Icons.arrow_upward,
-  //     'aspect_ratio': Icons.aspect_ratio,
-  //     'assessment': Icons.assessment,
-  //     'assignment': Icons.assignment,
-  //     'autorenew': Icons.autorenew,
-  //     'backup': Icons.backup,
-  //     'battery_alert': Icons.battery_alert,
-  //     'battery_charging_full': Icons.battery_charging_full,
-  //     'beach_access': Icons.beach_access,
-  //     'block': Icons.block,
-  //     'bluetooth': Icons.bluetooth,
-  //     'book': Icons.book,
-  //     'bookmark': Icons.bookmark,
-  //     'bug_report': Icons.bug_report,
-  //     'build': Icons.build,
-  //     'calendar_today': Icons.calendar_today,
-  //     'camera': Icons.camera,
-  //     'card_giftcard': Icons.card_giftcard,
-  //     'chat': Icons.chat,
-  //     'check': Icons.check,
-  //     'chevron_left': Icons.chevron_left,
-  //     'chevron_right': Icons.chevron_right,
-  //     'close': Icons.close,
-  //     'cloud': Icons.cloud,
-  //     'code': Icons.code,
-  //     'comment': Icons.comment,
-  //     'compare': Icons.compare,
-  //     'computer': Icons.computer,
-  //     'content_copy': Icons.content_copy,
-  //     'create': Icons.create,
-  //     'delete': Icons.delete,
-  //     'desktop_mac': Icons.desktop_mac,
-  //     'done': Icons.done,
-  //     'download': Icons.download,
-  //     'drag_handle': Icons.drag_handle,
-  //     'edit': Icons.edit,
-  //     'email': Icons.email,
-  //     'error': Icons.error,
-  //     'event': Icons.event,
-  //     'explore': Icons.explore,
-  //     'face': Icons.face,
-  //     'favorite': Icons.favorite,
-  //     'feedback': Icons.feedback,
-  //     'file_copy': Icons.file_copy,
-  //     'filter_list': Icons.filter_list,
-  //     'flag': Icons.flag,
-  //     'folder': Icons.folder,
-  //     'format_align_left': Icons.format_align_left,
-  //     'format_bold': Icons.format_bold,
-  //     'forward': Icons.forward,
-  //     'fullscreen': Icons.fullscreen,
-  //     'gps_fixed': Icons.gps_fixed,
-  //     'grade': Icons.grade,
-  //     'group': Icons.group,
-  //     'help': Icons.help,
-  //     'highlight': Icons.highlight,
-  //     'home': Icons.home,
-  //     'hourglass_empty': Icons.hourglass_empty,
-  //     'http': Icons.http,
-  //     'https': Icons.https,
-  //     'image': Icons.image,
-  //     'info': Icons.info,
-  //     'input': Icons.input,
-  //     'invert_colors': Icons.invert_colors,
-  //     'keyboard': Icons.keyboard,
-  //     'label': Icons.label,
-  //     'language': Icons.language,
-  //     'launch': Icons.launch,
-  //     'link': Icons.link,
-  //     'list': Icons.list,
-  //     'lock': Icons.lock,
-  //     'map': Icons.map,
-  //     'menu': Icons.menu,
-  //     'message': Icons.message,
-  //     'mic': Icons.mic,
-  //     'mood': Icons.mood,
-  //     'more_horiz': Icons.more_horiz,
-  //     'more_vert': Icons.more_vert,
-  //     'navigation': Icons.navigation,
-  //     'notifications': Icons.notifications,
-  //     'offline_bolt': Icons.offline_bolt,
-  //     'palette': Icons.palette,
-  //     'person': Icons.person,
-  //     'phone': Icons.phone,
-  //     'photo': Icons.photo,
-  //     'place': Icons.place,
-  //     'play_arrow': Icons.play_arrow,
-  //     'print': Icons.print,
-  //     'refresh': Icons.refresh,
-  //     'remove': Icons.remove,
-  //     'reorder': Icons.reorder,
-  //     'reply': Icons.reply,
-  //     'report': Icons.report,
-  //     'save': Icons.save,
-  //     'schedule': Icons.schedule,
-  //     'school': Icons.school,
-  //     'search': Icons.search,
-  //     'security': Icons.security,
-  //     'send': Icons.send,
-  //     'settings': Icons.settings,
-  //     'share': Icons.share,
-  //     'shopping_cart': Icons.shopping_cart,
-  //     'star': Icons.star,
-  //     'store': Icons.store,
-  //     'sync': Icons.sync,
-  //     'thumb_up': Icons.thumb_up,
-  //     'title': Icons.title,
-  //     'translate': Icons.translate,
-  //     'trending_up': Icons.trending_up,
-  //     'update': Icons.update,
-  //     'verified_user': Icons.verified_user,
-  //     'visibility': Icons.visibility,
-  //     'volume_up': Icons.volume_up,
-  //     'warning': Icons.warning,
-  //     'watch': Icons.watch,
-  //     'wifi': Icons.wifi,
-  //     'about': Icons.info,
-  //     'contact': Icons.contact_page,
-  //     'shop': Icons.storefront,
-  //     'cart': Icons.shopping_cart_outlined,
-  //     'shoppingcart': Icons.shopping_cart,
-  //     'orders': Icons.receipt_long,
-  //     'order': Icons.receipt_long,
-  //     'wishlist': Icons.favorite,
-  //     'like': Icons.favorite,
-  //     'category': Icons.category,
-  //     'account': Icons.account_circle,
-  //     'profile': Icons.account_circle,
-  //     'offer': Icons.local_offer,
-  //     'discount': Icons.local_offer,
-  //     'services': Icons.miscellaneous_services,
-  //     'blogs': Icons.article,
-  //     'blog': Icons.article,
-  //     'company': Icons.business,
-  //     'aboutus': Icons.business,
-  //     'more': Icons.more_horiz,
-  //     'home_outline': Icons.home_outlined,
-  //     'search_outline': Icons.search_outlined,
-  //     'person_outline': Icons.person_outline,
-  //     'settings_outline': Icons.settings_outlined,
-  //     'favorite_outline': Icons.favorite_outline,
-  //     'info_outline': Icons.info_outline,
-  //     'help_outline': Icons.help_outline,
-  //     'lock_outline': Icons.lock_outline,
-  //     'visibility_outline': Icons.visibility_outlined,
-  //     'calendar_today_outline': Icons.calendar_today_outlined,
-  //     'check_circle_outline': Icons.check_circle_outline,
-  //     'delete_outline': Icons.delete_outline,
-  //     'edit_outlined': Icons.edit_outlined,
-  //     'language_outlined': Icons.language_outlined,
-  //     'star_outline': Icons.star_outline,
-  //     'map_outlined': Icons.map_outlined,
-  //     'menu_outlined': Icons.menu_outlined,
-  //     'notifications_none': Icons.notifications_none,
-  //     'camera_outlined': Icons.camera_outlined,
-  //     'email_outlined': Icons.email_outlined,
-  //     'shopping_cart_outlined': Icons.shopping_cart_outlined,
-  //     'account_circle_outlined': Icons.account_circle_outlined,
-  //     'calendar_today_outlined': Icons.calendar_today_outlined,
-  //     'home_outlined': Icons.home_outlined,
-  //     'search_outlined': Icons.search_outlined,
-  //     'visibility_outlined': Icons.visibility_outlined,
-  //   };
-  //
-  //   final icon = iconMap[lowerName];
-  //   if (icon == null) {
-  //     if (kDebugMode) {
-  //       print("🚫 Icon not found for name: $name");
-  //     }
-  //   }
-  //   return icon ?? Icons.error_outline;
-  // }
-
-
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
@@ -686,31 +475,6 @@ class _MainHomeState extends State<MainHome> {
                           );
                           return NavigationActionPolicy.CANCEL;
                         }
-                        // // 🔒 Block Google reCAPTCHA URLs
-                        // if (uri != null && uri.toString().contains("google.com/recaptcha")) {
-                        //   debugPrint("Blocked reCAPTCHA URL: ${uri.toString()}");
-                        //   return NavigationActionPolicy.CANCEL;
-                        // }
-                        //
-                        // // ✅ Allow internal URLs, or handle deeplinks
-                        // if (uri != null && !uri.host.contains(myDomain)) {
-                        //   if (widget.isDeeplink) {
-                        //     if (await canLaunchUrl(uri)) {
-                        //       await launchUrl(uri, mode: LaunchMode.externalApplication);
-                        //       return NavigationActionPolicy.CANCEL;
-                        //     }
-                        //   } else {
-                        //     Fluttertoast.showToast(
-                        //       msg: "External links are disabled",
-                        //       toastLength: Toast.LENGTH_SHORT,
-                        //       gravity: ToastGravity.BOTTOM,
-                        //     );
-                        //     return NavigationActionPolicy.CANCEL;
-                        //   }
-                        // }
-                        //
-                        // return NavigationActionPolicy.ALLOW;
-
                       },
                       onLoadStart: (controller, url) {
                         setState(() {
@@ -811,6 +575,7 @@ class _MainHomeState extends State<MainHome> {
 
   }
 }
+
 List<Map<String, dynamic>> parseBottomMenuItems(String raw) {
   try {
     return List<Map<String, dynamic>>.from(json.decode(raw));
@@ -829,7 +594,7 @@ List<Map<String, dynamic>> convertIcons(List<Map<String, dynamic>> items) {
     };
   }).toList();
 }
- IconData _getIconByName(String? name) {
+IconData _getIconByName(String? name) {
   if (name == null || name.trim().isEmpty) {
     return Icons.apps; // Default icon
   }
@@ -1022,5 +787,4 @@ List<Map<String, dynamic>> convertIcons(List<Map<String, dynamic>> items) {
       print("🚫 Icon not found for name: $name");
     }
   }
-  return icon ?? Icons.error_outline;
-}
+  return icon ?? Icons.error_outline;}

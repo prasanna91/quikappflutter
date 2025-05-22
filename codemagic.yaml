@@ -2043,6 +2043,7 @@ workflows:
           rm -f certificate.p12 profile.mobileprovision exportOptions.plist
 
     artifacts:
+      - build/ios/iphoneos/Runner.app
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM

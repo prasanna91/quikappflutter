@@ -63,7 +63,7 @@ const bool pushNotify = bool.fromEnvironment('PUSH_NOTIFY', defaultValue: false)
 
 // Bottom menu
 const bool isBottomMenu = bool.fromEnvironment('IS_BOTTOMMENU', defaultValue: true);
-const String bottomMenuRaw = String.fromEnvironment('BOTTOMMENU_ITEMS', defaultValue: '[{"label": "Home", "icon": "home", "url": "https://pixaware.co/"}, {"label": "services", "icon": "help", "url": "https://pixaware.co/solutions/"}, {"label": "About", "icon": "info", "url": "https://pixaware.co/who-we-are/"}, {"label": "Contact", "icon": "company", "url": "https://pixaware.co/lets-talk/"}]');
+const String bottomMenuRaw = String.fromEnvironment('BOTTOMMENU_ITEMS', defaultValue: '[{"label": "Home", "icon": "store", "url": "https://pixaware.co/"}, {"label": "services", "icon": "services", "url": "https://pixaware.co/solutions/"}, {"label": "About", "icon": "info", "url": "https://pixaware.co/who-we-are/"}, {"label": "Contact", "icon": "company", "url": "https://pixaware.co/lets-talk/"}]');
 final List<Map<String, dynamic>> bottomMenuItems =
 (jsonDecode(bottomMenuRaw) as List).map((e) => Map<String, dynamic>.from(e)).toList();
 

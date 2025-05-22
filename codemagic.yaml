@@ -1881,6 +1881,16 @@ workflows:
       xcode: latest
       cocoapods: default
     scripts:
+      - *change_proj_name
+      - *debug_env
+      - *update_package_names
+      - *change_app_name
+      - *Update_SDK_Version
+      - *Update_App_Version
+      - *get_logo
+      - *get_splash
+      - *set_launcher_icons
+      - *Inject_iOS_Firebase_Push
       - name: Set up environment variables
         script: |
           # Validate required environment variables

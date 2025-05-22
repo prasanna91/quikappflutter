@@ -3,6 +3,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:quikappflutter/services/firebase_service.dart';
 import '../config/env_config.dart';
 import '../module/myapp.dart';
 import '../services/notification_service.dart';
@@ -21,7 +22,7 @@ void main() async {
 
     try {
       if (pushNotify) {
-        // ✅ This is required before using FirebaseMessaging or any Firebase service
+
         await Firebase.initializeApp();
         await initLocalNotifications();
         debugPrint("Firebase initialized (pushNotify: $pushNotify) by await Firebase.initializeApp();");
@@ -104,3 +105,7 @@ void main() async {
     isLoadIndicator: isLoadIndicator,
   ));
 }
+// ✅ This is required before using FirebaseMessaging or any Firebase service
+// await Firebase.initializeApp(
+//   options: await loadFirebaseOptionsFromJson(),
+// );

@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import 'dart:io';
 
-import 'package:firebase_core/firebase_core.dart';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -18,6 +18,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
+
+import '../config/trusted_domains.dart';
 
 
 
@@ -42,10 +44,10 @@ class MainHome extends StatefulWidget {
 
 class _MainHomeState extends State<MainHome> {
   final GlobalKey webViewKey = GlobalKey();
-  final String bmfont =  String.fromEnvironment('BOTTOMMENU_FONT', defaultValue: 'Public Sans');
-  final double bmfontSize = double.tryParse( String.fromEnvironment('BOTTOMMENU_FONT_SIZE', defaultValue: "14")) ?? 12;
-  final bool bmisBold =  bool.fromEnvironment('BOTTOMMENU_FONT_BOLD', defaultValue: false);
-  final bool bmisItalic =  bool.fromEnvironment('BOTTOMMENU_FONT_ITALIC', defaultValue: true);
+  final String BMFont =  String.fromEnvironment('BOTTOMMENU_FONT', defaultValue: 'Public Sans');
+  final double BMFontSize = double.tryParse( String.fromEnvironment('BOTTOMMENU_FONT_SIZE', defaultValue: "14")) ?? 12;
+  final bool BMisBold =  bool.fromEnvironment('BOTTOMMENU_FONT_BOLD', defaultValue: false);
+  final bool BMisItalic =  bool.fromEnvironment('BOTTOMMENU_FONT_ITALIC', defaultValue: true);
   late bool isBottomMenu;
 
   // final Color taglineColor = _parseHexColor(const String.fromEnvironment('SPLASH_TAGLINE_COLOR', defaultValue: "#000000"));
@@ -74,9 +76,6 @@ class _MainHomeState extends State<MainHome> {
   String? _pendingInitialUrl; // 🔹 NEW
 
   String myDomain = "";
-
-
-  // String? _pendingInitialUrl;
 
   InAppWebViewSettings settings = InAppWebViewSettings(
     isInspectable: kDebugMode,
@@ -109,6 +108,27 @@ class _MainHomeState extends State<MainHome> {
 
   @override
   void initState() {
+    super.initState();
+
+    if (pushNotify) {
+      try {
+        FirebaseMessaging.instance.getToken().then((token) {
+          if (kDebugMode) {
+            print("🔑 Firebase Token: $token");
+          }
+        });
+      } catch (e) {
+        if (kDebugMode) {
+          print("🚨 Error accessing FirebaseMessaging.instance: $e");
+        }
+      }
+    } else {
+      if (kDebugMode) {
+        print("📭 pushNotify is false. Skipping FirebaseMessaging setup.");
+      }
+    }
+
+
     super.initState();
     requestPermissions();
 
@@ -235,9 +255,58 @@ class _MainHomeState extends State<MainHome> {
       });
 
     } catch (e) {
-      print("❌ Error during Firebase Messaging setup: $e");
+      if (kDebugMode) {
+        print("❌ Error during Firebase Messaging setup: $e");
+      }
     }
   }
+
+
+  /// ✅ Setup push notification logic
+  // void setupFirebaseMessaging() async {
+  //
+  //   try {
+  //     FirebaseMessaging messaging = FirebaseMessaging.instance;
+  //
+  //     // Request permission FIRST (required for iOS)
+  //     NotificationSettings settings = await messaging.requestPermission(
+  //       alert: true,
+  //       badge: true,
+  //       sound: true,
+  //     );
+  //
+  //     if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+  //       // ✅ Subscribe to common and platform-specific topics
+  //       await messaging.subscribeToTopic('all_users');
+  //       if (Platform.isAndroid) {
+  //         await messaging.subscribeToTopic('android_users');
+  //       } else if (Platform.isIOS) {
+  //         await messaging.subscribeToTopic('ios_users');
+  //       }
+  //     } else {
+  //       if (kDebugMode) {
+  //         print("Notification permission not granted.");
+  //       }
+  //     }
+  //
+  //     // ✅ Listen for foreground messages
+  //     FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
+  //       await _showLocalNotification(message);
+  //       _handleNotificationNavigation(message);
+  //     });
+  //
+  //     // ✅ Handle background tap
+  //     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+  //       debugPrint("📲 Opened from background tap: ${message.data}");
+  //       _handleNotificationNavigation(message);
+  //     });
+  //
+  //   } catch (e) {
+  //     print("❌ Error during Firebase Messaging setup: $e");
+  //   }
+  // }
+
+
   // void setupFirebaseMessaging() async {
   //   try {
   //   FirebaseMessaging messaging = FirebaseMessaging.instance;
@@ -376,10 +445,10 @@ class _MainHomeState extends State<MainHome> {
   bool hasError = false;
   TextStyle _getMenuTextStyle(bool isActive) {
     return GoogleFonts.getFont(
-      bmfont,
-      fontSize: bmfontSize,
-      fontWeight: bmisBold ? FontWeight.bold : FontWeight.normal,
-      fontStyle: bmisItalic ? FontStyle.italic : FontStyle.normal,
+      BMFont,
+      fontSize: BMFontSize,
+      fontWeight: BMisBold ? FontWeight.bold : FontWeight.normal,
+      fontStyle: BMisItalic ? FontStyle.italic : FontStyle.normal,
       color: isActive
           ? _parseHexColor(widget.activeTabColor)
           : _parseHexColor(widget.textColor),
@@ -405,22 +474,22 @@ class _MainHomeState extends State<MainHome> {
     debugPrint("🧩 Menu item: ${item['label']}, icon: ${item['icon']}, resolved: $icon");
 
     debugPrint("🧪 Icon: $icon, Type: ${item['icon'].runtimeType} ========= ${Icon(Icons.home)}");
-    final disp_icon = Icon(iconData,
+    final dspIcon = Icon(iconData,
       color: isActive ? _parseHexColor(widget.activeTabColor) : _parseHexColor(widget.iconColor),
     );
     final label = Text(item['label'], style: _getMenuTextStyle(isActive));
 
     switch (widget.iconPosition) {
       case 'above':
-        return Column(mainAxisSize: MainAxisSize.min, children: [disp_icon, label]);
+        return Column(mainAxisSize: MainAxisSize.min, children: [dspIcon, label]);
       case 'beside':
-        return Row(mainAxisSize: MainAxisSize.min, children: [disp_icon, SizedBox(width: 4), label]);
+        return Row(mainAxisSize: MainAxisSize.min, children: [dspIcon, SizedBox(width: 4), label]);
       case 'only_text':
         return label;
       case 'only_icon':
-        return disp_icon;
+        return dspIcon;
       default:
-        return Column(mainAxisSize: MainAxisSize.min, children: [disp_icon, label]);
+        return Column(mainAxisSize: MainAxisSize.min, children: [dspIcon, label]);
     }
   }
 
@@ -659,31 +728,60 @@ class _MainHomeState extends State<MainHome> {
                       },
                       shouldOverrideUrlLoading: (controller, navigationAction) async {
                         final uri = navigationAction.request.url;
+                        if (uri != null) {
+                          final urlStr = uri.toString();
 
-                        // 🔒 Block Google reCAPTCHA URLs
-                        if (uri != null && uri.toString().contains("google.com/recaptcha")) {
-                          debugPrint("Blocked reCAPTCHA URL: ${uri.toString()}");
-                          return NavigationActionPolicy.CANCEL;
-                        }
+                          // 🔒 Block Google reCAPTCHA
+                          if (urlStr.contains("google.com/recaptcha")) {
+                            debugPrint("Blocked reCAPTCHA URL: $urlStr");
+                            return NavigationActionPolicy.CANCEL;
+                          }
 
-                        // ✅ Allow internal URLs, or handle deeplinks
-                        if (uri != null && !uri.host.contains(myDomain)) {
+                          // ✅ If it's your domain OR trusted payment domain → open in app
+                          if (uri.host.contains(myDomain) || isTrustedPaymentDomain(urlStr)) {
+                            return NavigationActionPolicy.ALLOW;
+                          }
+
+                          // 🌐 Otherwise open in external browser if deeplink is allowed
                           if (widget.isDeeplink) {
                             if (await canLaunchUrl(uri)) {
                               await launchUrl(uri, mode: LaunchMode.externalApplication);
                               return NavigationActionPolicy.CANCEL;
                             }
-                          } else {
-                            Fluttertoast.showToast(
-                              msg: "External links are disabled",
-                              toastLength: Toast.LENGTH_SHORT,
-                              gravity: ToastGravity.BOTTOM,
-                            );
-                            return NavigationActionPolicy.CANCEL;
                           }
-                        }
 
-                        return NavigationActionPolicy.ALLOW;
+                          // ❌ External links blocked
+                          Fluttertoast.showToast(
+                            msg: "External links are disabled",
+                            toastLength: Toast.LENGTH_SHORT,
+                            gravity: ToastGravity.BOTTOM,
+                          );
+                          return NavigationActionPolicy.CANCEL;
+                        }
+                        // // 🔒 Block Google reCAPTCHA URLs
+                        // if (uri != null && uri.toString().contains("google.com/recaptcha")) {
+                        //   debugPrint("Blocked reCAPTCHA URL: ${uri.toString()}");
+                        //   return NavigationActionPolicy.CANCEL;
+                        // }
+                        //
+                        // // ✅ Allow internal URLs, or handle deeplinks
+                        // if (uri != null && !uri.host.contains(myDomain)) {
+                        //   if (widget.isDeeplink) {
+                        //     if (await canLaunchUrl(uri)) {
+                        //       await launchUrl(uri, mode: LaunchMode.externalApplication);
+                        //       return NavigationActionPolicy.CANCEL;
+                        //     }
+                        //   } else {
+                        //     Fluttertoast.showToast(
+                        //       msg: "External links are disabled",
+                        //       toastLength: Toast.LENGTH_SHORT,
+                        //       gravity: ToastGravity.BOTTOM,
+                        //     );
+                        //     return NavigationActionPolicy.CANCEL;
+                        //   }
+                        // }
+                        //
+                        // return NavigationActionPolicy.ALLOW;
 
                       },
                       onLoadStart: (controller, url) {

@@ -1926,6 +1926,28 @@ workflows:
       - *get_splash
       - *set_launcher_icons
       - *Inject_iOS_Firebase_Push
+      - name: Update iOS minimum version and setup pods
+        script: |
+          cd ios
+          
+          # Update minimum iOS version in Podfile
+          echo "platform :ios, '13.0'" > Podfile.new
+          tail -n +2 Podfile >> Podfile.new
+          mv Podfile.new Podfile
+          
+          # Update Info.plist minimum version
+          /usr/libexec/PlistBuddy -c "Set :MinimumOSVersion 13.0" Runner/Info.plist
+          
+          # Update project.pbxproj iOS deployment target
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = .*/IPHONEOS_DEPLOYMENT_TARGET = 13.0;/g' Runner.xcodeproj/project.pbxproj
+          
+          # Clean and reinstall pods
+          rm -rf Pods Podfile.lock
+          pod repo update
+          pod install --repo-update
+          cd ..
+          flutter pub get
+
       - name: 🔐 Download and setup code signing
         script: |
           echo "📥 Downloading signing files..."
@@ -1954,22 +1976,6 @@ workflows:
 
           echo "export PROFILE_NAME=\"$PROFILE_NAME\"" >> $CM_ENV
           echo "export PROFILE_UUID=\"$PROFILE_UUID\"" >> $CM_ENV
-
-      - name: Update iOS minimum version and setup pods
-        script: |
-          cd ios
-          echo "platform :ios, '12.0'" > Podfile.new
-          tail -n +2 Podfile >> Podfile.new
-          mv Podfile.new Podfile
-          
-          /usr/libexec/PlistBuddy -c "Set :MinimumOSVersion 12.0" Runner/Info.plist
-          
-          # Clean and reinstall pods
-          rm -rf Pods Podfile.lock
-          pod repo update
-          pod install --repo-update
-          cd ..
-          flutter pub get
 
       - name: Build and package iOS app
         script: |
@@ -2016,18 +2022,8 @@ workflows:
             --dart-define=IS_NOTIFICATION="$IS_NOTIFICATION" \
             --dart-define=IS_STORAGE="$IS_STORAGE"
 
-          # Archive and export IPA
           cd ios
-          xcodebuild -workspace Runner.xcworkspace \
-            -scheme Runner \
-            -configuration Release \
-            -archivePath build/Runner.xcarchive \
-            clean archive \
-            CODE_SIGN_STYLE=Manual \
-            DEVELOPMENT_TEAM=$APPLE_TEAM_ID \
-            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
-            PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID"
-
+          
           # Create exportOptions.plist
           cat > exportOptions.plist << EOF
           <?xml version="1.0" encoding="UTF-8"?>
@@ -2051,26 +2047,38 @@ workflows:
           </plist>
           EOF
 
+          # Archive and export IPA
+          xcodebuild -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -archivePath build/Runner.xcarchive \
+            clean archive \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM=$APPLE_TEAM_ID \
+            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
+            PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" \
+            IPHONEOS_DEPLOYMENT_TARGET=13.0
+
           xcodebuild -exportArchive \
             -archivePath build/Runner.xcarchive \
             -exportPath build/ios/ipa \
             -exportOptionsPlist exportOptions.plist
 
           # Cleanup
-          security delete-keychain "$KEYCHAIN_NAME"
+          security delete-keychain "$KEYCHAIN_NAME" || true
           rm -f certificate.p12 profile.mobileprovision exportOptions.plist
 
     artifacts:
-        - build/ios/ipa/*.ipa
-        - /tmp/xcodebuild_logs/*.log
-        - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
     publishing:
-          email:
-            recipients:
-              - $EMAIL_ID
-            notify:
-              success: true
-              failure: true
+      email:
+        recipients:
+          - $EMAIL_ID
+        notify:
+          success: true
+          failure: true
 
   ios-and-android-workflow:
     name: iOS and Android Workflow
@@ -2258,80 +2266,6 @@ workflows:
     artifacts:
       - build/**/outputs/**/*.apk
       - build/**/outputs/**/*.aab
-#
-#  ios-workflow:
-#    name: iOS Workflow
-#    max_build_duration: 120
-#    instance_type: mac_mini_m1
-#    environment:
-#      ios_signing:
-#        distribution_type: app-store
-#        bundle_identifier: $BUNDLE_ID
-#      xcode: latest
-#      cocoapods: default
-#      vars:
-#        XCODE_WORKSPACE: "Runner.xcworkspace"
-#        XCODE_SCHEME: "Runner"
-#    scripts:
-#      - name: Set minimum iOS version and update pods
-#        script: |
-#          cd ios
-#          /usr/libexec/PlistBuddy -c "Set :MinimumOSVersion 12.0" Runner/Info.plist
-#
-#          # Update Podfile
-#          echo "platform :ios, '12.0'" > Podfile.new
-#          tail -n +2 Podfile >> Podfile.new
-#          mv Podfile.new Podfile
-#
-#          # Clean and reinstall pods
-#          rm -rf Pods Podfile.lock
-#          pod install --repo-update
-#      - name: Set up Firebase for iOS
-#        script: |
-#          if [ "$PUSH_NOTIFY" = "true" ] && [ -n "$firebase_config_ios" ]; then
-#            # Download and setup Firebase config
-#            curl -o ios/Runner/GoogleService-Info.plist "$firebase_config_ios"
-#
-#            # Verify the file
-#            if [ ! -f ios/Runner/GoogleService-Info.plist ]; then
-#              echo "❌ Failed to download GoogleService-Info.plist"
-#              exit 1
-#            fi
-#
-#            # Set up APNs if provided
-#            if [ -n "$APNS_AUTH_KEY_URL" ]; then
-#              curl -o ios/Runner/AuthKey_$APNS_KEY_ID.p8 "$APNS_AUTH_KEY_URL"
-#            fi
-#          fi
-#      - name: iOS build
-#        script: |
-#          # Set up code signing
-#          xcode-project use-profiles
-#
-#          # Build the app
-#          flutter build ios --release --no-codesign
-#
-#          cd ios
-#
-#          # Archive and export IPA
-#          xcodebuild -workspace Runner.xcworkspace \
-#            -scheme Runner \
-#            -configuration Release \
-#            -archivePath build/Runner.xcarchive \
-#            clean archive \
-#            CODE_SIGN_STYLE=Manual \
-#            DEVELOPMENT_TEAM=$APPLE_TEAM_ID \
-#            PROVISIONING_PROFILE="Automatic" \
-#            PRODUCT_BUNDLE_IDENTIFIER=$BUNDLE_ID
-#
-#          xcodebuild -exportArchive \
-#            -archivePath build/Runner.xcarchive \
-#            -exportOptionsPlist ExportOptions.plist \
-#            -exportPath build/ios/ipa
-#    artifacts:
-#      - build/ios/ipa/*.ipa
-#      - /tmp/xcodebuild_logs/*.log
-#      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
 
   combined-workflow:
     name: Combined Release Workflow

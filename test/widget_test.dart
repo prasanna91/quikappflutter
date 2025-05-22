@@ -9,25 +9,24 @@ import 'package:quikappflutter/utils/menu_parser.dart'; // Add this import
 void main() {
   testWidgets('Counter increments smoke test', (WidgetTester tester) async {
     // Dummy test data
-    const testWebUrl = "https://example.com";
+    const testWebUrl = "https://pixaware.co";
     const testIsBottomMenu = true;
     const testIsSplashEnabled = false;
     const testSplashUrl = "";
     const testSplashBgUrl = "";
     const testSplashDuration = 3;
     const testSplashAnimation = "zoom";
-    const testSplashTaglineColor = Colors.black;
-    const testSplashBgColor = Colors.white;
-    const testBottomMenuBgColor = Colors.white;
-    const testBottomMenuActiveTabColor = Colors.blue;
-    const testBottomMenuTextColor = Colors.black;
-    const testBottomMenuIconColor = Colors.black;
+    const String testSplashTaglineColor = "#000000";
+    const String testSplashBgColor = "#ffffff";
+    const String testBottomMenuBgColor = "#ffffff";
+    const String testBottomMenuActiveTabColor = "#f0f0f0";
+    const String testBottomMenuTextColor = "#000000";
+    const String testBottomMenuIconColor = "#ffffff";
     const testBottomMenuIconPosition = "above";
     const testIsDeepLink = true;
     const testIsLoadIndicator = true;
-    final testBottomMenuItems = parseBottomMenuItems(jsonEncode([
-      {"icon": "home", "label": "Home", "url": "https://example.com/home"},
-    ]));
+    final String testBottomMenuItems = "${[{"icon": "home", "label": "Home", "url": "https://example.com/home"},
+    ]}";
 
     // Build the widget
     await tester.pumpWidget(

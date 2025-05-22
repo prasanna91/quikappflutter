@@ -18,22 +18,21 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-import '../config/env_config.dart';
 
 
 
 class MainHome extends StatefulWidget {
   final String webUrl;
   final bool isBottomMenu;
-  final bottomMenuItems;
-  final isDeeplink;
-  final backgroundColor;
-  final activeTabColor;
-  final textColor;
-  final iconColor;
-  final iconPosition;
-  final taglineColor;
-  final isLoadIndicator;
+  final String bottomMenuItems;
+  final bool isDeeplink;
+  final String backgroundColor;
+  final String activeTabColor;
+  final String textColor;
+  final String iconColor;
+  final String iconPosition;
+  final String taglineColor;
+  final bool isLoadIndicator;
   const MainHome({super.key, required this.webUrl, required this.isBottomMenu, required this.bottomMenuItems, required this.isDeeplink, required this.backgroundColor, required this.activeTabColor, required this.textColor, required this.iconColor, required this.iconPosition, required this.taglineColor, required this.isLoadIndicator});
 
   @override
@@ -72,9 +71,9 @@ class _MainHomeState extends State<MainHome> {
   final urlController = TextEditingController();
   DateTime? _lastBackPressed;
   String? _pendingInitialUrl; // 🔹 NEW
-  StreamSubscription? _linkSub;
+
   String myDomain = "";
-  bool _initialUriIsHandled = false;
+
 
   // String? _pendingInitialUrl;
 
@@ -130,15 +129,6 @@ class _MainHomeState extends State<MainHome> {
 
     if (isBottomMenu == true) {
       try {
-    //     final rawJson = '''[
-    // {"label": "Home", "icon": "home", "url": "https://pixaware.co/"},
-    // {"label": "services", "icon": "services", "url": "https://pixaware.co/solutions/"},
-    // {"label": "About", "icon": "person_outline", "url": "https://pixaware.co/who-we-are/"},
-    // {"label": "Contact", "icon": "account", "url": "https://pixaware.co/lets-talk/"}
-    // ]''';
-    //
-    //     final parsed = parseBottomMenuItems(rawJson);
-    //     bottomMenuItems = convertIcons(parsed); // convert string icons to IconData
         bottomMenuItems = parseBottomMenuItems(widget.bottomMenuItems);
         // bottomMenuItems = widget.bottomMenuItems;
       } catch (e) {
@@ -206,29 +196,75 @@ class _MainHomeState extends State<MainHome> {
 
   /// ✅ Setup push notification logic
   void setupFirebaseMessaging() async {
-    FirebaseMessaging messaging = FirebaseMessaging.instance;
+    try {
+      FirebaseMessaging messaging = FirebaseMessaging.instance;
 
-    if (Platform.isIOS) {
-      await messaging.requestPermission(alert: true, badge: true, sound: true);
+      // Request permission FIRST (required for iOS)
+      NotificationSettings settings = await messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+
+      if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+        // ✅ Subscribe to common and platform-specific topics
+        await messaging.subscribeToTopic('all_users');
+        if (Platform.isAndroid) {
+          await messaging.subscribeToTopic('android_users');
+        } else if (Platform.isIOS) {
+          await messaging.subscribeToTopic('ios_users');
+        }
+      } else {
+        print("Notification permission not granted.");
+      }
+
+      // ✅ Listen for foreground messages
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
+        await _showLocalNotification(message);
+        _handleNotificationNavigation(message);
+      });
+
+      // ✅ Handle background tap
+      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+        debugPrint("📲 Opened from background tap: ${message.data}");
+        _handleNotificationNavigation(message);
+      });
+
+    } catch (e) {
+      print("❌ Error during Firebase Messaging setup: $e");
     }
-
-    await messaging.subscribeToTopic('all_users');
-    if (Platform.isAndroid) {
-      await messaging.subscribeToTopic('android_users');
-    } else if (Platform.isIOS) {
-      await messaging.subscribeToTopic('ios_users');
-    }
-
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
-      await _showLocalNotification(message);
-      _handleNotificationNavigation(message);
-    });
-
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      debugPrint("📲 Opened from background tap: ${message.data}");
-      _handleNotificationNavigation(message);
-    });
   }
+  // void setupFirebaseMessaging() async {
+  //   try {
+  //   FirebaseMessaging messaging = FirebaseMessaging.instance;
+  //
+  //   if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+  //   if (Platform.isIOS) {
+  //     await messaging.requestPermission(alert: true, badge: true, sound: true);
+  //   }
+  //
+  //   await messaging.subscribeToTopic('all_users');
+  //   if (Platform.isAndroid) {
+  //     await messaging.subscribeToTopic('android_users');
+  //   } else if (Platform.isIOS) {
+  //     await messaging.subscribeToTopic('ios_users');
+  //   }
+  //   } else {
+  //     print("Notification permission not granted.");
+  //   }
+  //   } catch (e) {
+  //     print("Error during Firebase Messaging setup: $e");
+  //   }
+  //   FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
+  //     await _showLocalNotification(message);
+  //     _handleNotificationNavigation(message);
+  //   });
+  //
+  //   FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+  //     debugPrint("📲 Opened from background tap: ${message.data}");
+  //     _handleNotificationNavigation(message);
+  //   });
+  // }
 
   /// ✅ Local push with optional image
   Future<void> _showLocalNotification(RemoteMessage message) async {

@@ -14,15 +14,15 @@ class MyApp extends StatefulWidget {
   final int splashDuration;
   final String splashAnimation;
   final bool isDeeplink;
-  final backgroundColor;
-  final activeTabColor;
-  final textColor;
-  final iconColor;
-  final iconPosition;
-  final taglineColor;
-  final spbgColor;
-  final isLoadIndicator;
-  final bottomMenuItems;
+  final String backgroundColor;
+  final String activeTabColor;
+  final String textColor;
+  final String iconColor;
+  final String iconPosition;
+  final String taglineColor;
+  final String spbgColor;
+  final bool isLoadIndicator;
+  final String bottomMenuItems;
   const MyApp({super.key, required this.webUrl, required this.isBottomMenu, required this.isSplash, required this.splashLogo, required this.splashBg, required this.splashDuration, required this.splashAnimation, required this.bottomMenuItems, required this.isDeeplink, required this.backgroundColor, required this.activeTabColor, required this.textColor, required this.iconColor, required this.iconPosition, required this.taglineColor, required this.spbgColor, required this.isLoadIndicator});
 
   @override

@@ -1921,189 +1921,151 @@ workflows:
 
       - name: Update app metadata
         script: |
-          # Update app name and version
-          flutter pub run rename setAppName --value "$APP_NAME"
-          flutter pub run rename setBundleId --value "$BUNDLE_ID"
-
-          # Update version in pubspec.yaml
-          sed -i'' -e "s/^version: .*/version: $VERSION_NAME+$VERSION_CODE/" pubspec.yaml
+            flutter pub run rename setAppName --value "$APP_NAME"
+            flutter pub run rename setBundleId --value "$BUNDLE_ID"
+            sed -i'' -e "s/^version: .*/version: $VERSION_NAME+$VERSION_CODE/" pubspec.yaml
 
       - name: Set up Firebase (if enabled)
         script: |
-          if [ "$PUSH_NOTIFY" = "true" ]; then
-            echo "🔥 Setting up Firebase..."
-            
-            if [ -n "$firebase_config_ios" ]; then
-              mkdir -p ios/Runner
-              curl -o ios/Runner/GoogleService-Info.plist "$firebase_config_ios"
-              
-              if [ ! -f "ios/Runner/GoogleService-Info.plist" ]; then
-                echo "❌ Failed to download GoogleService-Info.plist"
-                exit 1
-              fi
-              
-              echo "✅ Firebase configuration downloaded"
-            else
-              echo "❌ firebase_config_ios URL not provided"
-              exit 1
-            fi
-          else
-            echo "⏭️ Skipping Firebase setup (PUSH_NOTIFY is false)"
-          fi
+                if [ "$PUSH_NOTIFY" = "true" ]; then
+                  echo "🔥 Setting up Firebase..."
+                  if [ -n "$firebase_config_ios" ]; then
+                    mkdir -p ios/Runner
+                    curl -o ios/Runner/GoogleService-Info.plist "$firebase_config_ios"
+                    if [ ! -f "ios/Runner/GoogleService-Info.plist" ]; then
+                      echo "❌ Failed to download GoogleService-Info.plist"
+                      exit 1
+                    fi
+                    echo "✅ Firebase configuration downloaded"
+                  else
+                    echo "❌ firebase_config_ios URL not provided"
+                    exit 1
+                  fi
+                else
+                  echo "⏭️ Skipping Firebase setup (PUSH_NOTIFY is false)"
+                fi
 
       - name: Set up code signing
         script: |
-          echo "🔐 Setting up code signing..."
-          
-          # Create keychain
-          KEYCHAIN_NAME="build.keychain"
-          KEYCHAIN_PASSWORD="temporary"
-          
-          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_NAME"
-          security default-keychain -s "$KEYCHAIN_NAME"
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_NAME"
-          security set-keychain-settings -t 3600 -u "$KEYCHAIN_NAME"
-          
-          # Download and import certificate
-          echo "📥 Downloading signing certificate..."
-          curl -o certificate.p12 "$CERT_URL"
-          
-          security import certificate.p12 -k "$KEYCHAIN_NAME" -P "$CERT_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_NAME"
-          
-          # Download and install provisioning profile
-          echo "📥 Downloading provisioning profile..."
-          curl -o profile.mobileprovision "$PROFILE_URL"
-          
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          
-          # Extract profile info
-          PROFILE_PLIST=$(mktemp)
-          security cms -D -i profile.mobileprovision > "$PROFILE_PLIST"
-          UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" "$PROFILE_PLIST")
-          PROFILE_NAME=$(/usr/libexec/PlistBuddy -c "Print Name" "$PROFILE_PLIST")
-          
-          cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/"$UUID".mobileprovision
-          
-          # Export variables for later use
-          echo "PROFILE_NAME=$PROFILE_NAME" >> $CM_ENV
-          echo "PROFILE_UUID=$UUID" >> $CM_ENV
+                echo "🔐 Setting up code signing..."
+                KEYCHAIN_NAME="build.keychain"
+                KEYCHAIN_PASSWORD="temporary"
+                security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_NAME"
+                security default-keychain -s "$KEYCHAIN_NAME"
+                security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_NAME"
+                security set-keychain-settings -t 3600 -u "$KEYCHAIN_NAME"
+                curl -o certificate.p12 "$CERT_URL"
+                security import certificate.p12 -k "$KEYCHAIN_NAME" -P "$CERT_PASSWORD" -T /usr/bin/codesign
+                security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_NAME"
+                curl -o profile.mobileprovision "$PROFILE_URL"
+                mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+                PROFILE_PLIST=$(mktemp)
+                security cms -D -i profile.mobileprovision > "$PROFILE_PLIST"
+                UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" "$PROFILE_PLIST")
+                PROFILE_NAME=$(/usr/libexec/PlistBuddy -c "Print Name" "$PROFILE_PLIST")
+                cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/"$UUID".mobileprovision
+                echo "PROFILE_NAME=$PROFILE_NAME" >> $CM_ENV
+                echo "PROFILE_UUID=$UUID" >> $CM_ENV
 
       - name: Update iOS configuration
         script: |
-          cd ios
-          
-          # Update minimum iOS version in Podfile
-          echo "platform :ios, '13.0'" > Podfile.new
-          tail -n +2 Podfile >> Podfile.new
-          mv Podfile.new Podfile
-          
-          # Update project settings
-          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = .*/IPHONEOS_DEPLOYMENT_TARGET = 13.0;/g' Runner.xcodeproj/project.pbxproj
-          
-          # Clean and setup pods
-          rm -rf Pods Podfile.lock
-          pod repo update
-          pod install --repo-update
-          cd ..
+                cd ios
+                echo "platform :ios, '13.0'" > Podfile.new
+                echo "use_frameworks!" >> Podfile.new
+                tail -n +2 Podfile >> Podfile.new
+                mv Podfile.new Podfile
+                sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = .*/IPHONEOS_DEPLOYMENT_TARGET = 13.0;/g' Runner.xcodeproj/project.pbxproj
+                cd ..
 
       - name: Build Flutter app
         script: |
-          # Clean and get dependencies
-          flutter clean
-          flutter pub get
-          
-          # Build Flutter app
-          flutter build ios --release --no-codesign \
-            --dart-define=WEB_URL="$WEB_URL" \
-            --dart-define=PUSH_NOTIFY="$PUSH_NOTIFY" \
-            --dart-define=PKG_NAME="$PKG_NAME" \
-            --dart-define=APP_NAME="$APP_NAME" \
-            --dart-define=ORG_NAME="$ORG_NAME" \
-            --dart-define=VERSION_NAME="$VERSION_NAME" \
-            --dart-define=VERSION_CODE="$VERSION_CODE" \
-            --dart-define=EMAIL_ID="$EMAIL_ID" \
-            --dart-define=IS_SPLASH="$IS_SPLASH" \
-            --dart-define=SPLASH="$SPLASH" \
-            --dart-define=SPLASH_BG="$SPLASH_BG" \
-            --dart-define=SPLASH_ANIMATION="$SPLASH_ANIMATION" \
-            --dart-define=SPLASH_BG_COLOR="$SPLASH_BG_COLOR" \
-            --dart-define=SPLASH_TAGLINE="$SPLASH_TAGLINE" \
-            --dart-define=SPLASH_TAGLINE_COLOR="$SPLASH_TAGLINE_COLOR" \
-            --dart-define=SPLASH_DURATION="$SPLASH_DURATION" \
-            --dart-define=IS_PULLDOWN="$IS_PULLDOWN" \
-            --dart-define=LOGO_URL="$LOGO_URL" \
-            --dart-define=IS_BOTTOMMENU="$IS_BOTTOMMENU" \
-            --dart-define=BOTTOMMENU_ITEMS="$BOTTOMMENU_ITEMS" \
-            --dart-define=BOTTOMMENU_BG_COLOR="$BOTTOMMENU_BG_COLOR" \
-            --dart-define=BOTTOMMENU_ICON_COLOR="$BOTTOMMENU_ICON_COLOR" \
-            --dart-define=BOTTOMMENU_TEXT_COLOR="$BOTTOMMENU_TEXT_COLOR" \
-            --dart-define=IS_DEEPLINK="$IS_DEEPLINK" \
-            --dart-define=IS_LOAD_IND="$IS_LOAD_IND" \
-            --dart-define=IS_CAMERA="$IS_CAMERA" \
-            --dart-define=IS_LOCATION="$IS_LOCATION" \
-            --dart-define=IS_BIOMETRIC="$IS_BIOMETRIC" \
-            --dart-define=IS_MIC="$IS_MIC" \
-            --dart-define=IS_CONTACT="$IS_CONTACT" \
-            --dart-define=IS_CALENDAR="$IS_CALENDAR" \
-            --dart-define=IS_NOTIFICATION="$IS_NOTIFICATION" \
-            --dart-define=IS_STORAGE="$IS_STORAGE" > flutter_build_ipa.log
+                echo "📦 Cleaning Flutter"
+                flutter clean
+                flutter pub get
+                rm -rf ios/Pods ios/Podfile.lock ios/Flutter/Flutter.framework
+                flutter build ios --release --no-codesign \
+                  --dart-define=WEB_URL="$WEB_URL" \
+                  --dart-define=PUSH_NOTIFY="$PUSH_NOTIFY" \
+                  --dart-define=PKG_NAME="$PKG_NAME" \
+                  --dart-define=APP_NAME="$APP_NAME" \
+                  --dart-define=ORG_NAME="$ORG_NAME" \
+                  --dart-define=VERSION_NAME="$VERSION_NAME" \
+                  --dart-define=VERSION_CODE="$VERSION_CODE" \
+                  --dart-define=EMAIL_ID="$EMAIL_ID" \
+                  --dart-define=IS_SPLASH="$IS_SPLASH" \
+                  --dart-define=SPLASH="$SPLASH" \
+                  --dart-define=SPLASH_BG="$SPLASH_BG" \
+                  --dart-define=SPLASH_ANIMATION="$SPLASH_ANIMATION" \
+                  --dart-define=SPLASH_BG_COLOR="$SPLASH_BG_COLOR" \
+                  --dart-define=SPLASH_TAGLINE="$SPLASH_TAGLINE" \
+                  --dart-define=SPLASH_TAGLINE_COLOR="$SPLASH_TAGLINE_COLOR" \
+                  --dart-define=SPLASH_DURATION="$SPLASH_DURATION" \
+                  --dart-define=IS_PULLDOWN="$IS_PULLDOWN" \
+                  --dart-define=LOGO_URL="$LOGO_URL" \
+                  --dart-define=IS_BOTTOMMENU="$IS_BOTTOMMENU" \
+                  --dart-define=BOTTOMMENU_ITEMS="$BOTTOMMENU_ITEMS" \
+                  --dart-define=BOTTOMMENU_BG_COLOR="$BOTTOMMENU_BG_COLOR" \
+                  --dart-define=BOTTOMMENU_ICON_COLOR="$BOTTOMMENU_ICON_COLOR" \
+                  --dart-define=BOTTOMMENU_TEXT_COLOR="$BOTTOMMENU_TEXT_COLOR" \
+                  --dart-define=IS_DEEPLINK="$IS_DEEPLINK" \
+                  --dart-define=IS_LOAD_IND="$IS_LOAD_IND" \
+                  --dart-define=IS_CAMERA="$IS_CAMERA" \
+                  --dart-define=IS_LOCATION="$IS_LOCATION" \
+                  --dart-define=IS_BIOMETRIC="$IS_BIOMETRIC" \
+                  --dart-define=IS_MIC="$IS_MIC" \
+                  --dart-define=IS_CONTACT="$IS_CONTACT" \
+                  --dart-define=IS_CALENDAR="$IS_CALENDAR" \
+                  --dart-define=IS_NOTIFICATION="$IS_NOTIFICATION" \
+                  --dart-define=IS_STORAGE="$IS_STORAGE"
 
       - name: Archive and export IPA
         script: |
-          cd ios
-          
-          # Load profile info from environment
-          source $CM_ENV
-          
-          # Create exportOptions.plist for ad-hoc distribution
-          cat > exportOptions.plist << EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>method</key>
-              <string>ad-hoc</string>
-              <key>teamID</key>
-              <string>$APPLE_TEAM_ID</string>
-              <key>signingStyle</key>
-              <string>manual</string>
-              <key>provisioningProfiles</key>
-              <dict>
-                  <key>$BUNDLE_ID</key>
-                  <string>$PROFILE_NAME</string>
-              </dict>
-              <key>signingCertificate</key>
-              <string>Apple Distribution</string>
-          </dict>
-          </plist>
-          EOF
-          
-          # Archive
-          xcodebuild -workspace Runner.xcworkspace \
-            -scheme Runner \
-            -configuration Release \
-            -archivePath build/Runner.xcarchive \
-            clean archive \
-            CODE_SIGN_STYLE=Manual \
-            DEVELOPMENT_TEAM=$APPLE_TEAM_ID \
-            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
-            PROVISIONING_PROFILE="$PROFILE_UUID" \
-            PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
-            IPHONEOS_DEPLOYMENT_TARGET=13.0 \
-            OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_NAME"
-          
-          # Export IPA
-          xcodebuild -exportArchive \
-            -archivePath build/Runner.xcarchive \
-            -exportPath build/ios/ipa \
-            -exportOptionsPlist exportOptions.plist \
-            -allowProvisioningUpdates
-          
-          # Cleanup
-          security delete-keychain "$KEYCHAIN_NAME" || true
-          rm -f certificate.p12 profile.mobileprovision exportOptions.plist
+                cd ios
+                source $CM_ENV
+                cat > exportOptions.plist << EOF
+                <?xml version="1.0" encoding="UTF-8"?>
+                <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+                <plist version="1.0">
+                <dict>
+                    <key>method</key>
+                    <string>ad-hoc</string>
+                    <key>teamID</key>
+                    <string>$APPLE_TEAM_ID</string>
+                    <key>signingStyle</key>
+                    <string>manual</string>
+                    <key>provisioningProfiles</key>
+                    <dict>
+                        <key>$BUNDLE_ID</key>
+                        <string>$PROFILE_NAME</string>
+                    </dict>
+                    <key>signingCertificate</key>
+                    <string>Apple Distribution</string>
+                </dict>
+                </plist>
+                EOF
+                
+                xcodebuild -workspace Runner.xcworkspace \
+                  -scheme Runner \
+                  -configuration Release \
+                  -archivePath build/Runner.xcarchive \
+                  clean archive \
+                  CODE_SIGN_STYLE=Manual \
+                  DEVELOPMENT_TEAM=$APPLE_TEAM_ID \
+                  PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
+                  PROVISIONING_PROFILE="$PROFILE_UUID" \
+                  PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" \
+                  CODE_SIGN_IDENTITY="Apple Distribution" \
+                  IPHONEOS_DEPLOYMENT_TARGET=13.0 \
+                  OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_NAME"
+                
+                xcodebuild -exportArchive \
+                  -archivePath build/Runner.xcarchive \
+                  -exportPath build/ios/ipa \
+                  -exportOptionsPlist exportOptions.plist \
+                  -allowProvisioningUpdates
+                
+                security delete-keychain "$KEYCHAIN_NAME" || true
+                rm -f certificate.p12 profile.mobileprovision exportOptions.plist
 
     artifacts:
       - build/ios/iphoneos/Runner.app

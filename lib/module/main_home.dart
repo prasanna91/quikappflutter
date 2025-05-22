@@ -197,7 +197,7 @@ class _MainHomeState extends State<MainHome> {
 
   /// ✅ Setup push notification logic
   void setupFirebaseMessaging() async {
-    await Firebase.initializeApp();
+
     try {
       FirebaseMessaging messaging = FirebaseMessaging.instance;
 

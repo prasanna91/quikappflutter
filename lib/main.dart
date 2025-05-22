@@ -21,20 +21,20 @@ void main() async {
 
     try {
       if (pushNotify) {
-      // ✅ This is required before using FirebaseMessaging or any Firebase service
-      // await Firebase.initializeApp();
-      await initLocalNotifications();
-      debugPrint("Firebase initialized (pushNotify: $pushNotify) by await Firebase.initializeApp();");
-      // await Firebase.initializeApp();
-      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-      await initializeFirebaseMessaging();
-      if (kDebugMode) {
-        print("✅ Firebase initialized successfully");
-      }
+        // ✅ This is required before using FirebaseMessaging or any Firebase service
+        await Firebase.initializeApp();
+        await initLocalNotifications();
+        debugPrint("Firebase initialized (pushNotify: $pushNotify) by await Firebase.initializeApp();");
+        // await Firebase.initializeApp();
+        FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+        await initializeFirebaseMessaging();
+        if (kDebugMode) {
+          print("✅ Firebase initialized successfully");
+        }
 
-      } else {
-        debugPrint("🚫 Firebase not initialized (pushNotify: $pushNotify)");
-      }
+        } else {
+          debugPrint("🚫 Firebase not initialized (pushNotify: $pushNotify)");
+        }
     } catch (e) {
       if (kDebugMode) {
         print("🚨 Firebase initialization failed: $e");

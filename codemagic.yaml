@@ -566,10 +566,15 @@ definitions:
             echo "🚫 Firebase config skipped (PUSH_NOTIFY is not true)"
         fi
 
-    - &google_service
+    - &Inject_Firebase_Services
       name: Inject Google Services Plugin
       script: |
-          #!/usr/bin/env bash
+          if [ -f android/app/google-services.json ]; then
+          echo "✅ File found"
+          else
+          echo "❌ Missing google-services.json"
+          exit 1
+          fi
           set -e
           
           if [ "$PUSH_NOTIFY" = "true" ]; then
@@ -735,25 +740,13 @@ definitions:
       
         # Download files with retry
         download_with_retry "$firebase_config_android" "android/app/google-services.json"
-        
-      
-          #          echo "🔧 Updating values.xml file"
-          #        
-          #          # Prepare the values.xml file with necessary Firebase fields
-          #          mkdir -p android/app/src/main/res/values/
-          #          cat <<EOF > android/app/src/main/res/values/values.xml
-          #          <resources>
-          #          <string name="default_web_client_id">YOUR_WEB_CLIENT_ID</string>
-          #          <string name="firebase_database_url">YOUR_DATABASE_URL</string>
-          #          <string name="gcm_defaultSenderId">YOUR_SENDER_ID</string>
-          #          <string name="google_api_key">YOUR_API_KEY</string>
-          #          <string name="google_app_id">YOUR_APP_ID</string>
-          #          <string name="google_crash_reporting_api_key">YOUR_CRASH_REPORTING_KEY</string>
-          #          <string name="project_id">YOUR_PROJECT_ID</string>
-          #          </resources>
-          #          EOF
-          #        
-          #          echo "✅ values.xml file created successfully."
+
+         if [ -f android/app/google-services.json ]; then
+            echo "✅ File found"
+          else
+            echo "❌ Missing google-services.json"
+            exit 1
+          fi
         else
         echo "🚫 Firebase config skipped (PUSH_NOTIFY is not true)"
         fi
@@ -1843,7 +1836,7 @@ workflows:
       - *Update_SDK_Version
       #      - *get_json
 #      - *Inject_Firebase
-      - *google_service
+#      - *google_service
       - *get_logo
       - *set_launcher_icons
       - *get_splash
@@ -1869,14 +1862,13 @@ workflows:
       - *update_package_names
       - *change_app_name
       - *Update_SDK_Version
-      - *get_json
-#      - *Inject_Firebase
-      - *google_service
-      - *get_logo
-      - *set_launcher_icons
-      - *get_splash
       - *Update_App_Version
       - *key_store
+      - *get_json
+      - *Inject_Firebase_Services
+      - *set_launcher_icons
+      - *get_logo
+      - *get_splash
       - *build_apk_release
     artifacts:
       - *android_apk
@@ -2084,14 +2076,13 @@ workflows:
         - *update_package_names
         - *change_app_name
         - *Update_SDK_Version
-        - *get_json
-        #      - *Inject_Firebase
-        - *google_service
-        - *get_logo
-        - *set_launcher_icons
-        - *get_splash
         - *Update_App_Version
         - *key_store
+        - *get_json
+        - *Inject_Firebase_Services
+        - *set_launcher_icons
+        - *get_logo
+        - *get_splash
         - *build_apk_release
         - *Inject_iOS_Firebase_Push
         - name: 🔐 Download code signing files

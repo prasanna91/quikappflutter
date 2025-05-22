@@ -306,9 +306,7 @@ definitions:
       name: Get logo image from logoUrl
       script: |
         echo "🧹 Deleting old splash and logo assets..."
-    
-       
-    
+  
         if [ -f assets/images/logo.png ]; then
         rm assets/images/logo.png
         echo "✅ Deleted: assets/images/logo.png"
@@ -345,42 +343,12 @@ definitions:
       script: |
         echo "🚀 Generating launcher icons"
 
-          echo "🔢 VERSION_NAME: $VERSION_NAME"
-          echo "🔢 VERSION_CODE: $VERSION_CODE"
-           # Default values
-          VERSION_NAME="${VERSION_NAME:-1.0.0}"
-          VERSION_CODE="${VERSION_CODE:-100}"
-          
+        flutter pub get
 
-          # Check if VERSION_NAME is empty or not set
-          if [ -z "$VERSION_NAME" ]; then
-            VERSION_NAME=$DEFAULT_VERSION_NAME
-            echo "🔢 Setting DEFAULT_VERSION_NAME"
-          fi
+        # Generates launcher icons using flutter_launcher_icons configuration in pubspec.yaml
+        flutter pub run flutter_launcher_icons
 
-          # Check if VERSION_CODE is empty or not set
-          if [ -z "$VERSION_CODE" ]; then
-            VERSION_CODE=$DEFAULT_VERSION_CODE
-            echo "🔢 Setting DEFAULT_VERSION_CODE"
-          fi
-
-          echo "🔢 VERSION_NAME: $VERSION_NAME"
-          echo "🔢 VERSION_CODE: $VERSION_CODE"
-
-          echo "🔧 Ensuring valid version in pubspec.yaml: $VERSION_NAME+$VERSION_CODE"
-          # Replace or add version line in pubspec.yaml
-          if grep -q "^version: " pubspec.yaml; then
-            sed -i.bak -E "s/^version: .*/version: $VERSION_NAME+$VERSION_CODE/" pubspec.yaml
-          else
-          echo "version: $VERSION_NAME+$VERSION_CODE" >> pubspec.yaml
-          fi
-
-           flutter pub get
-
-           # Use updated command (deprecates `:main`)
-           flutter pub run flutter_launcher_icons
-
-           echo "✅ Launcher icons generated successfully"
+        echo "✅ Launcher icons generated successfully"
 
     - &change_app_name
       name: Change app name
@@ -1854,7 +1822,6 @@ workflows:
       - *get_logo
       - *set_launcher_icons
       - *get_splash
-      - *Update_App_Version
       - *build_apk
     artifacts:
       - *android_apk
@@ -1874,8 +1841,8 @@ workflows:
         - $HOME/.gradle/caches
         - $HOME/.gradle/wrapper
     scripts:
-      - *change_proj_name
       - *debug_env
+      - *change_proj_name
       - *update_package_names
       - *change_app_name
       - *Update_SDK_Version
@@ -1883,9 +1850,9 @@ workflows:
       - *key_store
       - *get_json
       - *Inject_Firebase_Services
-      - *set_launcher_icons
       - *get_logo
       - *get_splash
+      - *set_launcher_icons
       - *build_apk_release
     artifacts:
       - build/**/outputs/apk/**/*.apk

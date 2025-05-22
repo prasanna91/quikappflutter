@@ -2010,24 +2010,34 @@ workflows:
 
       - name: Build Flutter app
         script: |
-          # Clean and get dependencies
+          # Clean everything first
           flutter clean
+          
+          # Get dependencies and generate necessary files
           flutter pub get
           
-          # Ensure proper Flutter integration
+          # Setup iOS specific files
           flutter precache --ios
-          flutter pub get
           
-          # Clean and setup pods again after Flutter setup
+          # Generate Flutter framework files
           cd ios
-          pod deintegrate
-          pod cache clean --all
           rm -rf Pods Podfile.lock
-          pod repo update
-          pod install --repo-update
+          rm -rf .symlinks/
+          rm -rf Flutter/Flutter.framework
+          rm -rf Flutter/Flutter.podspec
           cd ..
           
-          # Build Flutter app
+          flutter build ios-framework --no-profile --no-release
+          
+          # Setup pods
+          cd ios
+          pod deintegrate || true
+          pod cache clean --all
+          pod repo update
+          pod install --repo-update --verbose
+          cd ..
+          
+          # Build the app
           flutter build ios --release --no-codesign \
             --dart-define=WEB_URL="$WEB_URL" \
             --dart-define=PUSH_NOTIFY="$PUSH_NOTIFY" \
@@ -2207,18 +2217,34 @@ workflows:
 
       - name: Build Flutter app
         script: |
-          # Clean and get dependencies
+          # Clean everything first
           flutter clean
+          
+          # Get dependencies and generate necessary files
           flutter pub get
-
-           # Clean and setup pods
+          
+          # Setup iOS specific files
+          flutter precache --ios
+          
+          # Generate Flutter framework files
           cd ios
           rm -rf Pods Podfile.lock
-          pod repo update
-          pod install --repo-update
+          rm -rf .symlinks/
+          rm -rf Flutter/Flutter.framework
+          rm -rf Flutter/Flutter.podspec
           cd ..
-
-          # Build Flutter app
+          
+          flutter build ios-framework --no-profile --no-release
+          
+          # Setup pods
+          cd ios
+          pod deintegrate || true
+          pod cache clean --all
+          pod repo update
+          pod install --repo-update --verbose
+          cd ..
+          
+          # Build the app
           flutter build ios --release --no-codesign \
             --dart-define=WEB_URL="$WEB_URL" \
             --dart-define=PUSH_NOTIFY="$PUSH_NOTIFY" \
@@ -2243,13 +2269,6 @@ workflows:
             --dart-define=BOTTOMMENU_BG_COLOR="$BOTTOMMENU_BG_COLOR" \
             --dart-define=BOTTOMMENU_ICON_COLOR="$BOTTOMMENU_ICON_COLOR" \
             --dart-define=BOTTOMMENU_TEXT_COLOR="$BOTTOMMENU_TEXT_COLOR" \
-            --dart-define=BOTTOMMENU_FONT="$BOTTOMMENU_FONT" \
-            --dart-define=BOTTOMMENU_FONT_SIZE="$BOTTOMMENU_FONT_SIZE" \
-            --dart-define=BOTTOMMENU_FONT_BOLD="$BOTTOMMENU_FONT_BOLD" \
-            --dart-define=BOTTOMMENU_FONT_ITALIC="$BOTTOMMENU_FONT_ITALIC" \
-            --dart-define=BOTTOMMENU_ACTIVE_TAB_COLOR="$BOTTOMMENU_ACTIVE_TAB_COLOR" \
-            --dart-define=BOTTOMMENU_ICON_POSITION="$BOTTOMMENU_ICON_POSITION" \
-            --dart-define=BOTTOMMENU_VISIBLE_ON="$BOTTOMMENU_VISIBLE_ON" \
             --dart-define=IS_DEEPLINK="$IS_DEEPLINK" \
             --dart-define=IS_LOAD_IND="$IS_LOAD_IND" \
             --dart-define=IS_CAMERA="$IS_CAMERA" \
@@ -2259,16 +2278,7 @@ workflows:
             --dart-define=IS_CONTACT="$IS_CONTACT" \
             --dart-define=IS_CALENDAR="$IS_CALENDAR" \
             --dart-define=IS_NOTIFICATION="$IS_NOTIFICATION" \
-            --dart-define=IS_STORAGE="$IS_STORAGE" \
-            --dart-define=firebase_config_android="$firebase_config_android" \
-            --dart-define=firebase_config_ios="$firebase_config_ios" \
-            --dart-define=APNS_KEY_ID="$APNS_KEY_ID" \
-            --dart-define=APPLE_TEAM_ID="$APPLE_TEAM_ID" \
-            --dart-define=APNS_AUTH_KEY_URL="$APNS_AUTH_KEY_URL" \
-            --dart-define=KEY_STORE="$KEY_STORE" \
-            --dart-define=CM_KEYSTORE_PASSWORD="$CM_KEYSTORE_PASSWORD" \
-            --dart-define=CM_KEY_ALIAS="$CM_KEY_ALIAS" \
-            --dart-define=CM_KEY_PASSWORD="$CM_KEY_PASSWORD" > flutter_build_ipa.log
+            --dart-define=IS_STORAGE="$IS_STORAGE"
 
       - name: Archive and export IPA
         script: |

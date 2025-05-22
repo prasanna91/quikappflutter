@@ -2030,24 +2030,22 @@ workflows:
                     > flutter_build_ipa.log
           
                   echo "📦 Archiving via xcodebuild..."
-                xcodebuild -workspace ios/Runner.xcworkspace \\
-                -scheme Runner \\
-                -configuration Release \\
-                -archivePath build/Runner.xcarchive \\
-                -destination 'generic/platform=iOS' \\
-                CODE_SIGN_STYLE=Manual \\
-                CODE_SIGN_IDENTITY="Apple Distribution" \\
-                DEVELOPMENT_TEAM=$APPLE_TEAM_ID \\
-                PRODUCT_BUNDLE_IDENTIFIER=$BUNDLE_ID \\
-                PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \\
-                ONLY_ACTIVE_ARCH=NO \\
-                OTHER_SWIFT_FLAGS="-Onone" \\
+                xcodebuild -workspace ios/Runner.xcworkspace -scheme Runner -configuration Release \
+                -archivePath build/Runner.xcarchive \
+                -destination 'generic/platform=iOS' \
+                CODE_SIGN_STYLE=Manual \
+                CODE_SIGN_IDENTITY="Apple Distribution" \
+                DEVELOPMENT_TEAM=$APPLE_TEAM_ID \
+                PRODUCT_BUNDLE_IDENTIFIER=$BUNDLE_ID \
+                PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
+                ONLY_ACTIVE_ARCH=NO \
+                OTHER_SWIFT_FLAGS="-Onone" \
                 clean archive || { echo "❌ Archive failed"; exit 1; }
       
                 echo "📤 Exporting IPA..."
-                xcodebuild -exportArchive \\
-                -archivePath build/Runner.xcarchive \\
-                -exportOptionsPlist ios/exportOptions.plist \\
+                xcodebuild -exportArchive \
+                -archivePath build/Runner.xcarchive \
+                -exportOptionsPlist ios/exportOptions.plist \
                 -exportPath build/ipa || { echo "❌ Export failed"; exit 1; }
       
                 echo "✅ IPA ready at build/ipa"

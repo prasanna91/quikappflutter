@@ -16,26 +16,22 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-// Lock orientation to portrait only
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    // DeviceOrientation.portraitDown,
-  ]);
 
 
 
     try {
-      if (pushNotify == true) {
+      if (pushNotify) {
       // ✅ This is required before using FirebaseMessaging or any Firebase service
-      await Firebase.initializeApp();
+      // await Firebase.initializeApp();
       await initLocalNotifications();
       debugPrint("Firebase initialized (pushNotify: $pushNotify) by await Firebase.initializeApp();");
       // await Firebase.initializeApp();
       FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+      await initializeFirebaseMessaging();
       if (kDebugMode) {
         print("✅ Firebase initialized successfully");
       }
-      await initializeFirebaseMessaging();
+
       } else {
         debugPrint("🚫 Firebase not initialized (pushNotify: $pushNotify)");
       }
@@ -45,6 +41,11 @@ void main() async {
       }
     }
 
+// Lock orientation to portrait only
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    // DeviceOrientation.portraitDown,
+  ]);
 
   if (webUrl.isEmpty) {
     debugPrint("❗ Missing WEB_URL environment variable.");

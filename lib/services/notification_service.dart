@@ -17,7 +17,7 @@ Future<void> initLocalNotifications() async {
 
 Future<void> initializeFirebaseMessaging() async {
   // await Firebase.initializeApp(options: await loadFirebaseOptionsFromJson());
-  // await Firebase.initializeApp();
+  await Firebase.initializeApp();
   FirebaseMessaging messaging = FirebaseMessaging.instance;
 
   await messaging.setAutoInitEnabled(true);

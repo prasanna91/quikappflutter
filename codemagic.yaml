@@ -1233,36 +1233,71 @@ definitions:
           keyAlias=$CM_KEY_ALIAS
           keyPassword=$CM_KEY_PASSWORD
           EOF
-          
-          if [ -f android/key.properties ]; then
-          echo "✅ key.properties written successfully."
-          else
-          echo "❌ Failed to write key.properties."
-          exit 1
-          fi
-          
-          echo "📦 Injecting dynamic signing configs into Kotlin DSL..."
+        
+          echo "🧩 Injecting keystoreProperties and signingConfig..."
           
           GRADLE_FILE="android/app/build.gradle.kts"
           
-          # Insert signingConfigs block if not present
-          if ! grep -q "signingConfigs" "$GRADLE_FILE"; then
-          echo "🔧 Adding signingConfigs block..."
-          awk '/android\s*{/{print; print "    signingConfigs {\n        create(\"release\") {\n            storeFile = file(\"keystore.jks\")\n            storePassword = project.findProperty(\"storePassword\") as String\n            keyAlias = project.findProperty(\"keyAlias\") as String\n            keyPassword = project.findProperty(\"keyPassword\") as String\n        }\n    }"; next}1' "$GRADLE_FILE" > tmp && mv tmp "$GRADLE_FILE"
-          echo "✅ signingConfigs block added."
+          # Add keystoreProperties block at the top if not present
+          if ! grep -q 'val keystoreProperties' "$GRADLE_FILE"; then
+            echo "🔧 Adding keystoreProperties block..."
+            sed -i '1s;^;val keystoreProperties = Properties().apply {\n    load(File(rootProject.rootDir, "android/key.properties").inputStream())\n}\n\n;' "$GRADLE_FILE"
           else
-          echo "✅ signingConfigs block already exists."
+            echo "✅ keystoreProperties block already present."
+          fi
+          
+          # Inject signingConfigs inside android { ... }
+          if ! grep -q 'signingConfigs' "$GRADLE_FILE"; then
+            echo "🔧 Injecting signingConfigs block..."
+            awk '/android\s*{/{print; print "    signingConfigs {\n        create(\"release\") {\n            storeFile = file(\"keystore.jks\")\n            storePassword = keystoreProperties[\"storePassword\"] as String\n            keyAlias = keystoreProperties[\"keyAlias\"] as String\n            keyPassword = keystoreProperties[\"keyPassword\"] as String\n        }\n    }"; next}1' "$GRADLE_FILE" > tmp && mv tmp "$GRADLE_FILE"
+          else
+            echo "✅ signingConfigs already exists."
           fi
           
           # Inject release buildType
           if grep -q "buildTypes" "$GRADLE_FILE"; then
-          echo "🔧 Updating buildTypes.release block..."
-          awk '/buildTypes\s*{/{print; print "        getByName(\"release\") {\n            signingConfig = signingConfigs.getByName(\"release\")\n            isMinifyEnabled = true\n            isShrinkResources = true\n            proguardFiles(getDefaultProguardFile(\"proguard-android-optimize.txt\"), \"proguard-rules.pro\")\n        }"; next}1' "$GRADLE_FILE" > tmp && mv tmp "$GRADLE_FILE"
-          echo "✅ buildTypes.release block injected."
+            if ! grep -q "signingConfig = signingConfigs.getByName(\"release\")" "$GRADLE_FILE"; then
+              echo "🔧 Injecting signingConfig into buildTypes.release..."
+              awk '/buildTypes\s*{/{print; print "        getByName(\"release\") {\n            signingConfig = signingConfigs.getByName(\"release\")\n            isMinifyEnabled = true\n            isShrinkResources = true\n            proguardFiles(getDefaultProguardFile(\"proguard-android-optimize.txt\"), \"proguard-rules.pro\")\n        }"; next}1' "$GRADLE_FILE" > tmp && mv tmp "$GRADLE_FILE"
+            else
+              echo "✅ signingConfig already injected in release buildType."
+            fi
           else
-          echo "❌ buildTypes block not found in $GRADLE_FILE"
-          exit 1
+            echo "❌ buildTypes block not found in $GRADLE_FILE"
+            exit 1
           fi
+          
+          echo "✅ Injection completed."
+#
+#          if [ -f android/key.properties ]; then
+#          echo "✅ key.properties written successfully."
+#          else
+#          echo "❌ Failed to write key.properties."
+#          exit 1
+#          fi
+#
+#          echo "📦 Injecting dynamic signing configs into Kotlin DSL..."
+#
+#          GRADLE_FILE="android/app/build.gradle.kts"
+#
+#          # Insert signingConfigs block if not present
+#          if ! grep -q "signingConfigs" "$GRADLE_FILE"; then
+#          echo "🔧 Adding signingConfigs block..."
+#          awk '/android\s*{/{print; print "    signingConfigs {\n        create(\"release\") {\n            storeFile = file(\"keystore.jks\")\n            storePassword = project.findProperty(\"storePassword\") as String\n            keyAlias = project.findProperty(\"keyAlias\") as String\n            keyPassword = project.findProperty(\"keyPassword\") as String\n        }\n    }"; next}1' "$GRADLE_FILE" > tmp && mv tmp "$GRADLE_FILE"
+#          echo "✅ signingConfigs block added."
+#          else
+#          echo "✅ signingConfigs block already exists."
+#          fi
+#
+#          # Inject release buildType
+#          if grep -q "buildTypes" "$GRADLE_FILE"; then
+#          echo "🔧 Updating buildTypes.release block..."
+#          awk '/buildTypes\s*{/{print; print "        getByName(\"release\") {\n            signingConfig = signingConfigs.getByName(\"release\")\n            isMinifyEnabled = true\n            isShrinkResources = true\n            proguardFiles(getDefaultProguardFile(\"proguard-android-optimize.txt\"), \"proguard-rules.pro\")\n        }"; next}1' "$GRADLE_FILE" > tmp && mv tmp "$GRADLE_FILE"
+#          echo "✅ buildTypes.release block injected."
+#          else
+#          echo "❌ buildTypes block not found in $GRADLE_FILE"
+#          exit 1
+#          fi
     - &Setup_IOS
       name: Setting Up IOS Build
       script: |

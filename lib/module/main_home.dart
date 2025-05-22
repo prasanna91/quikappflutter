@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'dart:io';
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -196,6 +197,7 @@ class _MainHomeState extends State<MainHome> {
 
   /// ✅ Setup push notification logic
   void setupFirebaseMessaging() async {
+    await Firebase.initializeApp();
     try {
       FirebaseMessaging messaging = FirebaseMessaging.instance;
 
@@ -215,7 +217,9 @@ class _MainHomeState extends State<MainHome> {
           await messaging.subscribeToTopic('ios_users');
         }
       } else {
-        print("Notification permission not granted.");
+        if (kDebugMode) {
+          print("Notification permission not granted.");
+        }
       }
 
       // ✅ Listen for foreground messages

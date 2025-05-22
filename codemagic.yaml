@@ -1905,76 +1905,75 @@ workflows:
       - *Update_SDK_Version
       - name: 🔐 Download code signing files
         script: |
-            echo "📥 Downloading signing files..."
-            wget "$CERT_URL" -O certificate.p12 || { echo "❌ Failed to download certificate"; exit 1; }
-            wget "$PROFILE_URL" -O profile.mobileprovision || { echo "❌ Failed to download profile"; exit 1; }
-            
-            echo "🔐 Setting up keychain..."
-            security create-keychain -p "temp123" ios-build.keychain
-            security default-keychain -s ios-build.keychain
-            security unlock-keychain -p "temp123" ios-build.keychain
-            security set-keychain-settings -t 3600 -l ios-build.keychain
-            security import certificate.p12 -k ios-build.keychain -P "$CERT_PASSWORD" -T /usr/bin/codesign
-            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "temp123" ios-build.keychain
-            
-            echo "📱 Installing provisioning profile..."
-            mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-            PROFILE_PLIST=$(mktemp)
-            security cms -D -i profile.mobileprovision > "$PROFILE_PLIST"
-            PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" "$PROFILE_PLIST")
-            PROFILE_NAME=$(/usr/libexec/PlistBuddy -c "Print Name" "$PROFILE_PLIST" | xargs)
-            BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:application-identifier" "$PROFILE_PLIST" | cut -d '.' -f2-)
-            APPLE_TEAM_ID=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:com.apple.developer.team-identifier" "$PROFILE_PLIST")
-            
-            cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$PROFILE_UUID.mobileprovision
-            
-            echo "💾 Generating exportOptions.plist..."
-            cat <<EOF > ios/exportOptions.plist
-            <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-            <plist version="1.0">
-            <dict>
-            <key>method</key>
-            <string>ad-hoc</string>
-            <key>signingStyle</key>
-            <string>manual</string>
-            <key>teamID</key>
-            <string>$APPLE_TEAM_ID</string>
-            <key>provisioningProfiles</key>
-            <dict>
-            <key>$BUNDLE_ID</key>
-            <string>$PROFILE_NAME</string>
-            </dict>
-            </dict>
-            </plist>
-            EOF
-            
-            echo "export PROFILE_NAME=\"$PROFILE_NAME\"" >> $CM_ENV
-            echo "export PROFILE_UUID=\"$PROFILE_UUID\"" >> $CM_ENV
-            echo "export BUNDLE_ID=\"$BUNDLE_ID\"" >> $CM_ENV
-            echo "export APPLE_TEAM_ID=\"$APPLE_TEAM_ID\"" >> $CM_ENV
+              echo "📥 Downloading signing files..."
+              wget "$CERT_URL" -O certificate.p12 || { echo "❌ Failed to download certificate"; exit 1; }
+              wget "$PROFILE_URL" -O profile.mobileprovision || { echo "❌ Failed to download profile"; exit 1; }
+    
+              echo "🔐 Setting up keychain..."
+              security create-keychain -p "temp123" ios-build.keychain
+              security default-keychain -s ios-build.keychain
+              security unlock-keychain -p "temp123" ios-build.keychain
+              security set-keychain-settings -t 3600 -l ios-build.keychain
+              security import certificate.p12 -k ios-build.keychain -P "$CERT_PASSWORD" -T /usr/bin/codesign
+              security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "temp123" ios-build.keychain
+    
+              echo "📱 Installing provisioning profile..."
+              mkdir -p ~/Library/MobileDevice/Provisioning\\ Profiles
+              PROFILE_PLIST=$(mktemp)
+              security cms -D -i profile.mobileprovision > "$PROFILE_PLIST"
+              PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" "$PROFILE_PLIST")
+              PROFILE_NAME=$(/usr/libexec/PlistBuddy -c "Print Name" "$PROFILE_PLIST" | xargs)
+              BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:application-identifier" "$PROFILE_PLIST" | cut -d '.' -f2-)
+              APPLE_TEAM_ID=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:com.apple.developer.team-identifier" "$PROFILE_PLIST")
+    
+              cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\\ Profiles/$PROFILE_UUID.mobileprovision
+    
+              echo "💾 Generating exportOptions.plist..."
+              cat <<EOF > ios/exportOptions.plist
+              <?xml version="1.0" encoding="UTF-8"?>
+              <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+              <plist version="1.0">
+              <dict>
+              <key>method</key>
+              <string>ad-hoc</string>
+              <key>signingStyle</key>
+              <string>manual</string>
+              <key>teamID</key>
+              <string>$APPLE_TEAM_ID</string>
+              <key>provisioningProfiles</key>
+              <dict>
+               <key>$BUNDLE_ID</key>
+               <string>$PROFILE_NAME</string>
+              </dict>
+              </dict>
+              </plist>
+              EOF
+    
+              echo "export PROFILE_NAME=\\"$PROFILE_NAME\\"" >> $CM_ENV
+              echo "export PROFILE_UUID=\\"$PROFILE_UUID\\"" >> $CM_ENV
+              echo "export BUNDLE_ID=\\"$BUNDLE_ID\\"" >> $CM_ENV
+              echo "export APPLE_TEAM_ID=\\"$APPLE_TEAM_ID\\"" >> $CM_ENV
 
       - name: 📦 Build and export IPA
         script: |
                 source $CM_ENV
-                
+      
                 echo "🔧 Ensuring iOS platform target is 13.0..."
                 sed -i '' 's/platform :ios, .*/platform :ios, '\''13.0'\''/' ios/Podfile || echo "Already set"
-                
+      
                 echo "🔧 Setting deployment target..."
                 find ios/Runner.xcodeproj -name project.pbxproj -print0 | xargs -0 sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = .*/IPHONEOS_DEPLOYMENT_TARGET = 13.0;/g'
-                
+      
                 echo "📦 Installing pods..."
                 cd ios
                 pod deintegrate
                 pod install
                 cd ..
-                
+      
                 echo "🛠️ Cleaning CODE_SIGN settings in Pods targets..."
-                sed -i '' '/ProvisioningStyle = Manual;/d' ios/Pods/Pods.xcodeproj/project.pbxproj
-                sed -i '' '/PROVISIONING_PROFILE_SPECIFIER/d' ios/Pods/Pods.xcodeproj/project.pbxproj
-                sed -i '' '/CODE_SIGN_IDENTITY/d' ios/Pods/Pods.xcodeproj/project.pbxproj
-                
+                find ios/Pods/Pods.xcodeproj -name project.pbxproj -print0 | xargs -0 sed -i '' '/ProvisioningStyle = Manual;/d'
+                find ios/Pods/Pods.xcodeproj -name project.pbxproj -print0 | xargs -0 sed -i '' '/PROVISIONING_PROFILE_SPECIFIER/d'
+                fi
                 echo "🏗️ Building release without codesign..."
                 flutter build ios --release --no-codesign \
                     --dart-define=WEB_URL="$WEB_URL" \
@@ -2027,28 +2026,29 @@ workflows:
                     --dart-define=CM_KEY_ALIAS="$CM_KEY_ALIAS" \
                     --dart-define=CM_KEY_PASSWORD="$CM_KEY_PASSWORD" \
                     > flutter_build_ipa.log
-                
-                echo "📦 Archiving via xcodebuild..."
-                xcodebuild -workspace ios/Runner.xcworkspace \
-                  -scheme Runner \
-                  -configuration Release \
-                  -archivePath build/Runner.xcarchive \
-                  -destination 'generic/platform=iOS' \
-                  CODE_SIGN_STYLE=Manual \
-                  CODE_SIGN_IDENTITY="Apple Distribution" \
-                  DEVELOPMENT_TEAM=$APPLE_TEAM_ID \
-                  PRODUCT_BUNDLE_IDENTIFIER=$BUNDLE_ID \
-                  PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
-                  ONLY_ACTIVE_ARCH=NO \
+          
+                  echo "📦 Archiving via xcodebuild..."
+                  xcodebuild -workspace ios/Runner.xcworkspace \\
+                  -scheme Runner \\
+                  -configuration Release \\
+                  -archivePath build/Runner.xcarchive \\
+                  -destination 'generic/platform=iOS' \\
+                  CODE_SIGN_STYLE=Manual \\
+                  CODE_SIGN_IDENTITY="Apple Distribution" \\
+                  DEVELOPMENT_TEAM=$APPLE_TEAM_ID \\
+                  PRODUCT_BUNDLE_IDENTIFIER=$BUNDLE_ID \\
+                  PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \\
+                  ONLY_ACTIVE_ARCH=NO \\
+                  OTHER_SWIFT_FLAGS="-Onone" \\
                   clean archive || { echo "❌ Archive failed"; exit 1; }
-                
-                echo "📤 Exporting IPA..."
-                xcodebuild -exportArchive \
-                  -archivePath build/Runner.xcarchive \
-                  -exportOptionsPlist ios/exportOptions.plist \
+        
+                  echo "📤 Exporting IPA..."
+                  xcodebuild -exportArchive \\
+                  -archivePath build/Runner.xcarchive \\
+                  -exportOptionsPlist ios/exportOptions.plist \\
                   -exportPath build/ipa || { echo "❌ Export failed"; exit 1; }
-                
-                echo "✅ IPA ready at build/ipa"
+        
+                  echo "✅ IPA ready at build/ipa"
      
           
     

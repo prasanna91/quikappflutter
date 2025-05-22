@@ -112,7 +112,9 @@ class _MainHomeState extends State<MainHome> {
 
     if (pushNotify) {
       try {
-        FirebaseMessaging.instance.getToken().then((token) {
+        // Only access FirebaseMessaging after ensuring Firebase is initialized
+        Future.delayed(Duration.zero, () async {
+          final token = await FirebaseMessaging.instance.getToken();
           if (kDebugMode) {
             print("🔑 Firebase Token: $token");
           }
@@ -128,18 +130,16 @@ class _MainHomeState extends State<MainHome> {
       }
     }
 
-
-    super.initState();
     requestPermissions();
 
     if (pushNotify == true) {
       setupFirebaseMessaging();
-      // ✅ Modified: Handle terminated state
+      // Handle terminated state
       FirebaseMessaging.instance.getInitialMessage().then((message) async {
         if (message != null) {
           final internalUrl = message.data['url'];
           if (internalUrl != null && internalUrl.isNotEmpty) {
-            _pendingInitialUrl = internalUrl; // 🔹 Save for later navigation
+            _pendingInitialUrl = internalUrl;
           }
           await _showLocalNotification(message);
         }

@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
+import '../config/env_config.dart';
+import 'package:http/http.dart' as http;
 
 Future<FirebaseOptions> loadFirebaseOptionsFromJson() async {
   try {
@@ -25,17 +27,18 @@ Future<FirebaseOptions> _loadAndroidConfig() async {
   try {
     debugPrint("🤖 Loading Android Firebase config...");
     
-    // Load the JSON file from the assets
-    final String jsonStr = await rootBundle.loadString('android/app/google-services.json');
-    final Map<String, dynamic> jsonMap = json.decode(jsonStr);
+    // Download the JSON file from the URL
+    final http.Response response = await http.get(Uri.parse(firebaseConfigAndroid));
+    if (response.statusCode != 200) {
+      throw Exception('Failed to download google-services.json');
+    }
 
-    // Extract project info
+    final Map<String, dynamic> jsonMap = json.decode(response.body);
     final projectInfo = jsonMap['project_info'];
     if (projectInfo == null) {
       throw Exception("Missing project_info in google-services.json");
     }
 
-    // Extract client info
     final clients = jsonMap['client'] as List;
     if (clients.isEmpty) {
       throw Exception("No client configuration found in google-services.json");
@@ -48,7 +51,6 @@ Future<FirebaseOptions> _loadAndroidConfig() async {
       orElse: () => throw Exception("No valid API key found"),
     );
 
-    // Build Firebase options
     return FirebaseOptions(
       apiKey: apiKey['current_key'],
       appId: clientInfo['mobilesdk_app_id'],
@@ -66,14 +68,20 @@ Future<FirebaseOptions> _loadIOSConfig() async {
   try {
     debugPrint("🍎 Loading iOS Firebase config...");
     
-    // Load the PLIST file
-    final String plistStr = await rootBundle.loadString('ios/Runner/GoogleService-Info.plist');
-    // Parse PLIST (simplified - you might want to use a proper PLIST parser)
+    // Download the PLIST file from the URL
+    final http.Response response = await http.get(Uri.parse(firebaseConfigIos));
+    if (response.statusCode != 200) {
+      throw Exception('Failed to download GoogleService-Info.plist');
+    }
+
+    final String plistStr = response.body;
     final apiKey = _extractFromPlist(plistStr, 'API_KEY');
     final appId = _extractFromPlist(plistStr, 'GOOGLE_APP_ID');
     final messagingSenderId = _extractFromPlist(plistStr, 'GCM_SENDER_ID');
     final projectId = _extractFromPlist(plistStr, 'PROJECT_ID');
     final storageBucket = _extractFromPlist(plistStr, 'STORAGE_BUCKET');
+    final iosClientId = _extractFromPlist(plistStr, 'CLIENT_ID');
+    final iosBundleId = _extractFromPlist(plistStr, 'BUNDLE_ID');
 
     if (apiKey == null || appId == null || messagingSenderId == null || projectId == null) {
       throw Exception("Missing required Firebase configuration values in GoogleService-Info.plist");
@@ -85,8 +93,8 @@ Future<FirebaseOptions> _loadIOSConfig() async {
       messagingSenderId: messagingSenderId,
       projectId: projectId,
       storageBucket: storageBucket ?? '',
-      iosClientId: _extractFromPlist(plistStr, 'CLIENT_ID'),
-      iosBundleId: _extractFromPlist(plistStr, 'BUNDLE_ID'),
+      iosClientId: iosClientId,
+      iosBundleId: iosBundleId,
     );
   } catch (e) {
     debugPrint("❌ Error loading iOS Firebase config: $e");

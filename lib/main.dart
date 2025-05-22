@@ -33,10 +33,9 @@ void main() async {
 
     if (pushNotify) {
       try {
-        // Initialize Firebase with options from google-services.json
-        await Firebase.initializeApp(
-          options: await loadFirebaseOptionsFromJson(),
-        );
+        // Initialize Firebase with options from configuration files
+        final options = await loadFirebaseOptionsFromJson();
+        await Firebase.initializeApp(options: options);
 
         // Set background message handler
         FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
@@ -113,7 +112,7 @@ void main() async {
     debugPrint("Stack trace: $stackTrace");
     runApp(MaterialApp(
       home: Scaffold(
-        body: Center(child: Text("Fatal error: $e")),
+        body: Center(child: Text("Error: $e")),
       ),
     ));
   }

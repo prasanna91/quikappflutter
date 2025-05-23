@@ -1047,39 +1047,7 @@ definitions:
     - &build_apk_release
       name: Building Apk with Feature Flags
       script: |
-        echo "🔢 VERSION_NAME: $VERSION_NAME"
-        echo "🔢 VERSION_CODE: $VERSION_CODE"
-         # Default values
-        VERSION_NAME="${VERSION_NAME:-1.0.0}"
-        VERSION_CODE="${VERSION_CODE:-100}"
-
-        # Check if VERSION_NAME is empty or not set
-        if [ -z "$VERSION_NAME" ]; then
-          VERSION_NAME=$DEFAULT_VERSION_NAME
-          echo "🔢 Setting DEFAULT_VERSION_NAME"
-        fi
-
-        # Check if VERSION_CODE is empty or not set
-        if [ -z "$VERSION_CODE" ]; then
-          VERSION_CODE=$DEFAULT_VERSION_CODE
-          echo "🔢 Setting DEFAULT_VERSION_CODE"
-        fi
-
-        echo "🔢 VERSION_NAME: $VERSION_NAME"
-        echo "🔢 VERSION_CODE: $VERSION_CODE"
-
-        echo "🔧 Ensuring valid version in pubspec.yaml: $VERSION_NAME+$VERSION_CODE"
-        if grep -q "^version: " pubspec.yaml; then
-          sed -i.bak -E "s/^version: .*/version: $VERSION_NAME+$VERSION_CODE/" pubspec.yaml
-          else
-        echo "version: $VERSION_NAME+$VERSION_CODE" >> pubspec.yaml
-          fi
-
-        flutter pub get
-        if [ $? -ne 0 ]; then
-        echo "❌ Failed to get Flutter dependencies"
-        exit 1
-        fi
+       
 
         echo "✅ Building APK..."
         flutter build apk --release \

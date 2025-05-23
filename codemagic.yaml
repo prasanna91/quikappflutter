@@ -1845,9 +1845,9 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 120
     environment:
-      ios_signing:
-        distribution_type: ad_hoc  # Keep as ad-hoc for testing
-        bundle_identifier: $BUNDLE_ID
+#      ios_signing:
+#        distribution_type: ad_hoc  # Keep as ad-hoc for testing
+#        bundle_identifier: $BUNDLE_ID
       vars:
         XCODE_WORKSPACE: "Runner.xcworkspace"
         XCODE_SCHEME: "Runner"

@@ -1890,9 +1890,9 @@ workflows:
         flutter: 3.16.0
     cache:
       cache_paths:
-        ~/.pub-cache
-        vendor/bundle
-        Pods
+        - ~/.pub-cache
+        - vendor/bundle
+        - Pods
     scripts:
       - *change_proj_name
       - *debug_env

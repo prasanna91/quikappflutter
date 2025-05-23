@@ -90,7 +90,7 @@ definitions:
         echo "APP_NAME: $APP_NAME"
         echo "ORG_NAME: $ORG_NAME"
         echo "WEB_URL: $WEB_URL"
-        echo "VERSION_NAME: $VERSION_NAME"           
+        echo "VERSION_NAME: $VERSION_NAME           
         echo "VERSION_CODE: $VERSION_CODE" 
         echo "PKG_NAME: $PKG_NAME"
         echo "BUNDLE_ID: $BUNDLE_ID"
@@ -1878,19 +1878,21 @@ workflows:
     max_build_duration: 120
     environment:
       ios_signing:
-        distribution_type: app_store
+        distribution_type: ad_hoc
         bundle_identifier: $BUNDLE_ID
       vars:
         XCODE_WORKSPACE: "Runner.xcworkspace"
         XCODE_SCHEME: "Runner"
-      xcode: 15.4
-      cocoapods: 1.15.2
-      flutter: 3.16.0
+        BUNDLE_ID: $BUNDLE_ID
+        XCODE_CONFIG: Release
+        xcode: 15.4
+        cocoapods: 1.15.2
+        flutter: 3.16.0
     cache:
       cache_paths:
-        - ~/.pub-cache
-        - vendor/bundle
-        - Pods
+        ~/.pub-cache
+        vendor/bundle
+        Pods
     scripts:
       - *change_proj_name
       - *debug_env
@@ -1901,116 +1903,115 @@ workflows:
       - *get_logo
       - *get_splash
       - *set_launcher_icons
-      - *Inject_iOS_Firebase_Push
-      - name: Download App Store Connect private key
+      - *Inject_Firebase_new
+      - name: Set up iOS signing
         script: |
-          echo "Downloading private key from URL..."
-          curl -o private_key.p8 "$APP_STORE_CONNECT_PRIVATE_KEY"
-          if [ ! -f "private_key.p8" ]; then
-            echo "Failed to download private key"
-            exit 1
-          fi
-          echo "Private key downloaded successfully"
-      - name: Set up code signing
+            echo "🔐 Setting up iOS signing..."
+            # Create and configure keychain
+            KEYCHAIN_NAME="ios-build.keychain"
+            KEYCHAIN_PASSWORD="temp_password"
+            security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_NAME"
+            security default-keychain -s "$KEYCHAIN_NAME"
+            security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_NAME"
+            security set-keychain-settings -t 3600 -u "$KEYCHAIN_NAME"
+            # Download and import certificate
+            echo "📥 Downloading signing certificate..."
+            curl -o signing_cert.p12 "$CERT_URL"
+            echo "🔑 Importing certificate to keychain..."
+            security import signing_cert.p12 -k "$KEYCHAIN_NAME" -P "$CERT_PASSWORD" -T /usr/bin/codesign
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_NAME"
+            # Download and install provisioning profile
+            echo "📥 Downloading provisioning profile..."
+            curl -o profile.mobileprovision "$PROFILE_URL"
+            mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+            UUID=$(security cms -D -i profile.mobileprovision | plutil -extract UUID raw -)
+            cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/"$UUID".mobileprovision
+            echo "✅ Code signing setup complete"
+            Inject_iOS_Firebase_Push
+      - name: Set up Flutter and iOS dependencies
         script: |
-          echo "Setting up code signing..."
-          keychain initialize
-          app-store-connect fetch-signing-files "$BUNDLE_ID" \
-            --type IOS_APP_STORE \
-            --create \
-            --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
-            --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
-            --private-key "@private_key.p8"
-          keychain add-certificates
-          xcode-project use-profiles
-      - name: Set up Flutter
+              echo "🔧 Setting up Flutter and iOS dependencies..."
+              flutter clean
+              flutter pub get
+              cd ios
+              pod deintegrate
+              rm -rf Pods Podfile.lock
+              pod cache clean --all
+              pod repo update
+              pod install --repo-update
+              cd ..
+      - name: Build iOS IPA
         script: |
-          flutter clean
-          flutter pub get
-      - name: Install CocoaPods dependencies
-        script: |
-          cd ios
-          pod deintegrate
-          rm -rf Pods Podfile.lock
-          pod cache clean --all
-          pod repo update
-          pod install --repo-update
-      - name: Set build number
-        script: |
-          cd ios
-          agvtool new-version -all $(($(app-store-connect get-latest-app-store-build-number "$BUNDLE_ID") + 1))
-      - name: Flutter build
-        script: |
-          flutter build ipa --release \
-            --dart-define=WEB_URL="$WEB_URL" \
-            --dart-define=PUSH_NOTIFY="$PUSH_NOTIFY" \
-            --dart-define=PKG_NAME="$PKG_NAME" \
-            --dart-define=APP_NAME="$APP_NAME" \
-            --dart-define=ORG_NAME="$ORG_NAME" \
-            --dart-define=VERSION_NAME="$VERSION_NAME" \
-            --dart-define=VERSION_CODE="$VERSION_CODE" \
-            --dart-define=EMAIL_ID="$EMAIL_ID" \
-            --dart-define=IS_SPLASH="$IS_SPLASH" \
-            --dart-define=SPLASH="$SPLASH" \
-            --dart-define=SPLASH_BG="$SPLASH_BG" \
-            --dart-define=SPLASH_ANIMATION="$SPLASH_ANIMATION" \
-            --dart-define=SPLASH_BG_COLOR="$SPLASH_BG_COLOR" \
-            --dart-define=SPLASH_TAGLINE="$SPLASH_TAGLINE" \
-            --dart-define=SPLASH_TAGLINE_COLOR="$SPLASH_TAGLINE_COLOR" \
-            --dart-define=SPLASH_DURATION="$SPLASH_DURATION" \
-            --dart-define=IS_PULLDOWN="$IS_PULLDOWN" \
-            --dart-define=LOGO_URL="$LOGO_URL" \
-            --dart-define=IS_BOTTOMMENU="$IS_BOTTOMMENU" \
-            --dart-define=BOTTOMMENU_ITEMS="$BOTTOMMENU_ITEMS" \
-            --dart-define=BOTTOMMENU_BG_COLOR="$BOTTOMMENU_BG_COLOR" \
-            --dart-define=BOTTOMMENU_ICON_COLOR="$BOTTOMMENU_ICON_COLOR" \
-            --dart-define=BOTTOMMENU_TEXT_COLOR="$BOTTOMMENU_TEXT_COLOR" \
-            --dart-define=BOTTOMMENU_FONT="$BOTTOMMENU_FONT" \
-            --dart-define=BOTTOMMENU_FONT_SIZE="$BOTTOMMENU_FONT_SIZE" \
-            --dart-define=BOTTOMMENU_FONT_BOLD="$BOTTOMMENU_FONT_BOLD" \
-            --dart-define=BOTTOMMENU_FONT_ITALIC="$BOTTOMMENU_FONT_ITALIC" \
-            --dart-define=BOTTOMMENU_ACTIVE_TAB_COLOR="$BOTTOMMENU_ACTIVE_TAB_COLOR" \
-            --dart-define=BOTTOMMENU_ICON_POSITION="$BOTTOMMENU_ICON_POSITION" \
-            --dart-define=BOTTOMMENU_VISIBLE_ON="$BOTTOMMENU_VISIBLE_ON" \
-            --dart-define=IS_DEEPLINK="$IS_DEEPLINK" \
-            --dart-define=IS_LOAD_IND="$IS_LOAD_IND" \
-            --dart-define=IS_CAMERA="$IS_CAMERA" \
-            --dart-define=IS_LOCATION="$IS_LOCATION" \
-            --dart-define=IS_BIOMETRIC="$IS_BIOMETRIC" \
-            --dart-define=IS_MIC="$IS_MIC" \
-            --dart-define=IS_CONTACT="$IS_CONTACT" \
-            --dart-define=IS_CALENDAR="$IS_CALENDAR" \
-            --dart-define=IS_NOTIFICATION="$IS_NOTIFICATION" \
-            --dart-define=IS_STORAGE="$IS_STORAGE" \
-            --dart-define=firebase_config_android="$firebase_config_android" \
-            --dart-define=firebase_config_ios="$firebase_config_ios" \
-            --dart-define=APNS_KEY_ID="$APNS_KEY_ID" \
-            --dart-define=APPLE_TEAM_ID="$APPLE_TEAM_ID" \
-            --dart-define=APNS_AUTH_KEY_URL="$APNS_AUTH_KEY_URL" \
-            --dart-define=KEY_STORE="$KEY_STORE" \
-            --dart-define=CM_KEYSTORE_PASSWORD="$CM_KEYSTORE_PASSWORD" \
-            --dart-define=CM_KEY_ALIAS="$CM_KEY_ALIAS" \
-            --dart-define=CM_KEY_PASSWORD="$CM_KEY_PASSWORD" \
-            --export-options-plist=/Users/builder/export_options.plist
+              echo "📱 Building iOS IPA..."
+              # Get signing identity
+              SIGNING_IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_NAME" | grep "iPhone Distribution" | head -1 | awk '{print $2}')
+              # Create ExportOptions.plist
+              cat > ExportOptions.plist << EOF
+              <?xml version="1.0" encoding="UTF-8"?>
+              <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+              <plist version="1.0">
+              <dict>
+              <key>method</key>
+              <string>ad-hoc</string>
+              <key>teamID</key>
+              <string>$APPLE_TEAM_ID</string>
+              <key>signingStyle</key>
+              <string>manual</string>
+              <key>provisioningProfiles</key>
+              <dict>
+              <key>$BUNDLE_ID</key>
+              <string>$UUID</string>
+              </dict>
+              </dict>
+              </plist>
+              EOF
+              # Build and archive
+              flutter build ipa --release \
+              --export-options-plist=ExportOptions.plist \
+              --dart-define=WEB_URL="$WEB_URL" \
+              --dart-define=PUSH_NOTIFY="$PUSH_NOTIFY" \
+              --dart-define=PKG_NAME="$PKG_NAME" \
+              --dart-define=APP_NAME="$APP_NAME" \
+              --dart-define=ORG_NAME="$ORG_NAME" \
+              --dart-define=VERSION_NAME="$VERSION_NAME" \
+              --dart-define=VERSION_CODE="$VERSION_CODE" \
+              --dart-define=EMAIL_ID="$EMAIL_ID" \
+              --dart-define=IS_SPLASH="$IS_SPLASH" \
+              --dart-define=SPLASH="$SPLASH" \
+              --dart-define=SPLASH_BG="$SPLASH_BG" \
+              --dart-define=SPLASH_ANIMATION="$SPLASH_ANIMATION" \
+              --dart-define=SPLASH_BG_COLOR="$SPLASH_BG_COLOR" \
+              --dart-define=SPLASH_TAGLINE="$SPLASH_TAGLINE" \
+              --dart-define=SPLASH_TAGLINE_COLOR="$SPLASH_TAGLINE_COLOR" \
+              --dart-define=SPLASH_DURATION="$SPLASH_DURATION" \
+              --dart-define=IS_PULLDOWN="$IS_PULLDOWN" \
+              --dart-define=LOGO_URL="$LOGO_URL" \
+              --dart-define=IS_BOTTOMMENU="$IS_BOTTOMMENU" \
+              --dart-define=IS_DEEPLINK="$IS_DEEPLINK" \
+              --dart-define=IS_LOAD_IND="$IS_LOAD_IND" \
+              --dart-define=IS_CAMERA="$IS_CAMERA" \
+              --dart-define=IS_LOCATION="$IS_LOCATION" \
+              --dart-define=IS_BIOMETRIC="$IS_BIOMETRIC" \
+              --dart-define=IS_MIC="$IS_MIC" \
+              --dart-define=IS_CONTACT="$IS_CONTACT" \
+              --dart-define=IS_CALENDAR="$IS_CALENDAR" \
+              --dart-define=IS_NOTIFICATION="$IS_NOTIFICATION" \
+              --dart-define=IS_STORAGE="$IS_STORAGE"
+              # Cleanup
+              security delete-keychain "$KEYCHAIN_NAME"
+              rm -f signing_cert.p12 profile.mobileprovision ExportOptions.plist
+              echo "✅ IPA build completed"
     artifacts:
-      - build/ios/ipa/*.ipa
-      - /tmp/xcodebuild_logs/*.log
-      - flutter_drive.log
-    publishing:
-      email:
-        recipients:
-          - $EMAIL_ID
-        notify:
-          success: true
-          failure: true
-      app_store_connect:
-        api_key: "@private_key.p8"
-        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
-        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
-        submit_to_testflight: true
-        beta_groups:
-          - "Internal Testers"
-        submit_to_app_store: false
+    - build/ios/ipa/.ipa
+    - /tmp/xcodebuild_logs/.log
+    - flutter_drive.log
+publishing:
+  email:
+    recipients:
+      $EMAIL_ID
+  notify:
+    success: true
+    failure: true
 
   ios-and-android-workflow:
     name: iOS and Android Workflow

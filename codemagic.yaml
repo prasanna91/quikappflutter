@@ -1878,7 +1878,7 @@ workflows:
     max_build_duration: 120
     environment:
       ios_signing:
-        distribution_type: app-store
+        distribution_type: app_store
         bundle_identifier: $BUNDLE_ID
       vars:
         XCODE_WORKSPACE: "Runner.xcworkspace"

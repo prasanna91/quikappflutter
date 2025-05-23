@@ -1871,7 +1871,7 @@ workflows:
       - *get_logo
       - *get_splash
       - *set_launcher_icons
-      - *Inject_Firebase_new
+      - *Inject_Firebase_iOS_Push
       - name: Set up code signing
         script: |
           echo "🔐 Setting up iOS code signing..."

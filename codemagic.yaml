@@ -29,6 +29,9 @@ definitions:
         APNS_KEY_ID: $APNS_KEY_ID
         APPLE_TEAM_ID: $APPLE_TEAM_ID
         APNS_AUTH_KEY_URL: $APNS_AUTH_KEY_URL
+        APP_STORE_CONNECT_PRIVATE_KEY: $APP_STORE_CONNECT_PRIVATE_KEY
+        APP_STORE_CONNECT_ISSUER_ID: $APP_STORE_CONNECT_ISSUER_ID
+        APP_STORE_CONNECT_KEY_IDENTIFIER: $APP_STORE_CONNECT_KEY_IDENTIFIER
         PKG_NAME: $PKG_NAME
         BUNDLE_ID: $BUNDLE_ID
         EMAIL_ID: $EMAIL_ID
@@ -109,6 +112,8 @@ definitions:
         echo "CM_KEY_PASSWORD: $CM_KEY_PASSWORD"
 
         echo "*********** IOS Keystore ***********"
+        echo "APP_STORE_CONNECT_ISSUER_ID: $APP_STORE_CONNECT_ISSUER_ID"
+        echo "APP_STORE_CONNECT_KEY_IDENTIFIER: $APP_STORE_CONNECT_KEY_IDENTIFIER"
         echo "APNS_KEY_ID: $APNS_KEY_ID"
         echo "TEAM_ID: $APPLE_TEAM_ID"
         echo "APNS_AUTH_KEY_URL: $APNS_AUTH_KEY_URL"
@@ -1869,17 +1874,23 @@ workflows:
 
   ios-workflow:
     name: iOS Workflow
+    instance_type: mac_mini_m2
     max_build_duration: 120
-    instance_type: mac_mini_m1
     environment:
+      ios_signing:
+        distribution_type: app-store
+        bundle_identifier: $BUNDLE_ID
       vars:
         XCODE_WORKSPACE: "Runner.xcworkspace"
         XCODE_SCHEME: "Runner"
-        LANG: en_US.UTF-8
-        LC_ALL: en_US.UTF-8
-      flutter: stable
-      xcode: latest
-      cocoapods: default
+      xcode: 15.4
+      cocoapods: 1.15.2
+      flutter: 3.16.0
+    cache:
+      cache_paths:
+        - ~/.pub-cache
+        - vendor/bundle
+        - Pods
     scripts:
       - *change_proj_name
       - *debug_env
@@ -1891,154 +1902,46 @@ workflows:
       - *get_splash
       - *set_launcher_icons
       - *Inject_iOS_Firebase_Push
-      - name: Set up environment variables
+      - name: Download App Store Connect private key
         script: |
-          # Validate required environment variables
-          REQUIRED_VARS=(
-            "VERSION_NAME"
-            "VERSION_CODE"
-            "APP_NAME"
-            "ORG_NAME"
-            "WEB_URL"
-            "BUNDLE_ID"
-            "EMAIL_ID"
-            "PUSH_NOTIFY"
-            "APPLE_TEAM_ID"
-            "CERT_URL"
-            "CERT_PASSWORD"
-            "PROFILE_URL"
-          )
-
-          for var in "${REQUIRED_VARS[@]}"; do
-            if [ -z "${!var}" ]; then
-              echo "❌ Required variable $var is not set"
-              exit 1
-            fi
-          done
-
-          echo "✅ All required variables are set"
-
-      - name: Update app metadata
-        script: |
-          # Update app name and version
-          flutter pub run rename setAppName --value "$APP_NAME"
-          flutter pub run rename setBundleId --value "$BUNDLE_ID"
-
-          # Update version in pubspec.yaml
-          sed -i'' -e "s/^version: .*/version: $VERSION_NAME+$VERSION_CODE/" pubspec.yaml
-
-      - name: Set up Firebase (if enabled)
-        script: |
-          if [ "$PUSH_NOTIFY" = "true" ]; then
-            echo "🔥 Setting up Firebase..."
-            
-            if [ -n "$firebase_config_ios" ]; then
-              mkdir -p ios/Runner
-              curl -o ios/Runner/GoogleService-Info.plist "$firebase_config_ios"
-              
-              if [ ! -f "ios/Runner/GoogleService-Info.plist" ]; then
-                echo "❌ Failed to download GoogleService-Info.plist"
-                exit 1
-              fi
-              
-              echo "✅ Firebase configuration downloaded"
-            else
-              echo "❌ firebase_config_ios URL not provided"
-              exit 1
-            fi
-          else
-            echo "⏭️ Skipping Firebase setup (PUSH_NOTIFY is false)"
+          echo "Downloading private key from URL..."
+          curl -o private_key.p8 "$APP_STORE_CONNECT_PRIVATE_KEY"
+          if [ ! -f "private_key.p8" ]; then
+            echo "Failed to download private key"
+            exit 1
           fi
-
+          echo "Private key downloaded successfully"
       - name: Set up code signing
         script: |
-          echo "🔐 Setting up code signing..."
-          
-          # Create keychain
-          KEYCHAIN_NAME="build.keychain"
-          KEYCHAIN_PASSWORD="temporary"
-          
-          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_NAME"
-          security default-keychain -s "$KEYCHAIN_NAME"
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_NAME"
-          security set-keychain-settings -t 3600 -u "$KEYCHAIN_NAME"
-          
-          # Download and import certificate
-          echo "📥 Downloading signing certificate..."
-          curl -o certificate.p12 "$CERT_URL"
-          
-          security import certificate.p12 -k "$KEYCHAIN_NAME" -P "$CERT_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_NAME"
-          
-          # Download and install provisioning profile
-          echo "📥 Downloading provisioning profile..."
-          curl -o profile.mobileprovision "$PROFILE_URL"
-          
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          
-          # Extract profile info
-          PROFILE_PLIST=$(mktemp)
-          security cms -D -i profile.mobileprovision > "$PROFILE_PLIST"
-          UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" "$PROFILE_PLIST")
-          PROFILE_NAME=$(/usr/libexec/PlistBuddy -c "Print Name" "$PROFILE_PLIST")
-          
-          cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/"$UUID".mobileprovision
-          
-          # Export variables for later use
-          echo "PROFILE_NAME=$PROFILE_NAME" >> $CM_ENV
-          echo "PROFILE_UUID=$UUID" >> $CM_ENV
-
-      - name: Update iOS configuration
+          echo "Setting up code signing..."
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create \
+            --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
+            --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            --private-key "@private_key.p8"
+          keychain add-certificates
+          xcode-project use-profiles
+      - name: Set up Flutter
+        script: |
+          flutter clean
+          flutter pub get
+      - name: Install CocoaPods dependencies
         script: |
           cd ios
-          
-          # Update minimum iOS version in Podfile
-          echo "platform :ios, '13.0'" > Podfile.new
-          tail -n +2 Podfile >> Podfile.new
-          mv Podfile.new Podfile
-          
-          # Update project settings
-          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = .*/IPHONEOS_DEPLOYMENT_TARGET = 13.0;/g' Runner.xcodeproj/project.pbxproj
-          
-          # Clean CocoaPods cache and reinstall
+          pod deintegrate
           rm -rf Pods Podfile.lock
-          rm -rf ~/Library/Developer/Xcode/DerivedData/*
           pod cache clean --all
           pod repo update
           pod install --repo-update
-          cd ..
-
-      - name: Build Flutter app
+      - name: Set build number
         script: |
-          # Clean everything first
-          flutter clean
-          
-          # Get dependencies and generate necessary files
-          flutter pub get
-          
-          # Setup iOS specific files
-          flutter precache --ios
-          
-          # Generate Flutter framework files
           cd ios
-          rm -rf Pods Podfile.lock
-          rm -rf .symlinks/
-          rm -rf Flutter/Flutter.framework
-          rm -rf Flutter/Flutter.podspec
-          cd ..
-          
-          flutter build ios-framework --no-profile --no-release
-          
-          # Setup pods
-          cd ios
-          pod deintegrate || true
-          pod cache clean --all
-          pod repo update
-          pod install --repo-update --verbose
-          cd ..
-          
-          # Build the app
-          flutter build ios --release --no-codesign \
+          agvtool new-version -all $(($(app-store-connect get-latest-app-store-build-number "$BUNDLE_ID") + 1))
+      - name: Flutter build
+        script: |
+          flutter build ipa --release \
             --dart-define=WEB_URL="$WEB_URL" \
             --dart-define=PUSH_NOTIFY="$PUSH_NOTIFY" \
             --dart-define=PKG_NAME="$PKG_NAME" \
@@ -2062,6 +1965,13 @@ workflows:
             --dart-define=BOTTOMMENU_BG_COLOR="$BOTTOMMENU_BG_COLOR" \
             --dart-define=BOTTOMMENU_ICON_COLOR="$BOTTOMMENU_ICON_COLOR" \
             --dart-define=BOTTOMMENU_TEXT_COLOR="$BOTTOMMENU_TEXT_COLOR" \
+            --dart-define=BOTTOMMENU_FONT="$BOTTOMMENU_FONT" \
+            --dart-define=BOTTOMMENU_FONT_SIZE="$BOTTOMMENU_FONT_SIZE" \
+            --dart-define=BOTTOMMENU_FONT_BOLD="$BOTTOMMENU_FONT_BOLD" \
+            --dart-define=BOTTOMMENU_FONT_ITALIC="$BOTTOMMENU_FONT_ITALIC" \
+            --dart-define=BOTTOMMENU_ACTIVE_TAB_COLOR="$BOTTOMMENU_ACTIVE_TAB_COLOR" \
+            --dart-define=BOTTOMMENU_ICON_POSITION="$BOTTOMMENU_ICON_POSITION" \
+            --dart-define=BOTTOMMENU_VISIBLE_ON="$BOTTOMMENU_VISIBLE_ON" \
             --dart-define=IS_DEEPLINK="$IS_DEEPLINK" \
             --dart-define=IS_LOAD_IND="$IS_LOAD_IND" \
             --dart-define=IS_CAMERA="$IS_CAMERA" \
@@ -2071,70 +1981,21 @@ workflows:
             --dart-define=IS_CONTACT="$IS_CONTACT" \
             --dart-define=IS_CALENDAR="$IS_CALENDAR" \
             --dart-define=IS_NOTIFICATION="$IS_NOTIFICATION" \
-            --dart-define=IS_STORAGE="$IS_STORAGE"
-
-      - name: Archive and export IPA
-        script: |
-          cd ios
-          
-          # Load profile info from environment
-          source $CM_ENV
-          
-          # Create exportOptions.plist for ad-hoc distribution
-          cat > exportOptions.plist << EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>method</key>
-              <string>ad-hoc</string>
-              <key>teamID</key>
-              <string>$APPLE_TEAM_ID</string>
-              <key>signingStyle</key>
-              <string>manual</string>
-              <key>provisioningProfiles</key>
-              <dict>
-                  <key>$BUNDLE_ID</key>
-                  <string>$PROFILE_NAME</string>
-              </dict>
-              <key>signingCertificate</key>
-              <string>Apple Distribution</string>
-          </dict>
-          </plist>
-          EOF
-          
-          # Archive
-          xcodebuild -workspace Runner.xcworkspace \
-            -scheme Runner \
-            -configuration Release \
-            -archivePath build/Runner.xcarchive \
-            clean archive \
-            CODE_SIGN_STYLE=Manual \
-            DEVELOPMENT_TEAM=$APPLE_TEAM_ID \
-            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
-            PROVISIONING_PROFILE="$PROFILE_UUID" \
-            PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
-            IPHONEOS_DEPLOYMENT_TARGET=13.0 \
-            OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_NAME"
-          
-          # Export IPA
-          xcodebuild -exportArchive \
-            -archivePath build/Runner.xcarchive \
-            -exportPath build/ios/ipa \
-            -exportOptionsPlist exportOptions.plist \
-            -allowProvisioningUpdates
-          
-          # Cleanup
-          security delete-keychain "$KEYCHAIN_NAME" || true
-          rm -f certificate.p12 profile.mobileprovision exportOptions.plist
-
+            --dart-define=IS_STORAGE="$IS_STORAGE" \
+            --dart-define=firebase_config_android="$firebase_config_android" \
+            --dart-define=firebase_config_ios="$firebase_config_ios" \
+            --dart-define=APNS_KEY_ID="$APNS_KEY_ID" \
+            --dart-define=APPLE_TEAM_ID="$APPLE_TEAM_ID" \
+            --dart-define=APNS_AUTH_KEY_URL="$APNS_AUTH_KEY_URL" \
+            --dart-define=KEY_STORE="$KEY_STORE" \
+            --dart-define=CM_KEYSTORE_PASSWORD="$CM_KEYSTORE_PASSWORD" \
+            --dart-define=CM_KEY_ALIAS="$CM_KEY_ALIAS" \
+            --dart-define=CM_KEY_PASSWORD="$CM_KEY_PASSWORD" \
+            --export-options-plist=/Users/builder/export_options.plist
     artifacts:
-      - build/ios/iphoneos/Runner.app
-      - flutter_build_ipa.log
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
-      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+      - flutter_drive.log
     publishing:
       email:
         recipients:
@@ -2142,6 +2003,14 @@ workflows:
         notify:
           success: true
           failure: true
+      app_store_connect:
+        api_key: "@private_key.p8"
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        submit_to_testflight: true
+        beta_groups:
+          - "Internal Testers"
+        submit_to_app_store: false
 
   ios-and-android-workflow:
     name: iOS and Android Workflow

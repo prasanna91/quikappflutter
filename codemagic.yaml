@@ -1938,7 +1938,12 @@ workflows:
       - name: Build and sign IPA
         script: |
           echo "📱 Building and signing IPA..."
+    
+          # Load the signing identity from environment
+          source $CM_ENV
           
+          echo "🔑 Using signing identity: $CODE_SIGN_IDENTITY"
+            
           # Create ExportOptions.plist
           cat > ios/ExportOptions.plist << EOF
           <?xml version="1.0" encoding="UTF-8"?>
@@ -2028,6 +2033,7 @@ workflows:
           rm -f signing_cert.p12 profile.mobileprovision ios/ExportOptions.plist
           
     artifacts:
+      - build/ios/iphoneos/Runner.app
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
     publishing:

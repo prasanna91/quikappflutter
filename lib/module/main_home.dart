@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
@@ -390,32 +391,6 @@ class _MainHomeState extends State<MainHome> {
           : _parseHexColor(widget.textColor),
     );
   }
-
-
-  Widget _buildMenuItem(Map<String, dynamic> item, bool isActive) {
-    final IconData iconData = _getIconByName(item['icon']);
-    IconData icon = _getIconByName(item['icon']);
-    debugPrint("🧩 Menu item: ${item['label']}, icon: ${item['icon']}, resolved: $icon");
-
-    debugPrint("🧪 Icon: $icon, Type: ${item['icon'].runtimeType} ========= ${Icon(Icons.home)}");
-    final dspIcon = Icon(iconData,
-      color: isActive ? _parseHexColor(widget.activeTabColor) : _parseHexColor(widget.iconColor),
-    );
-    final label = Text(item['label'], style: _getMenuTextStyle(isActive));
-
-    switch (widget.iconPosition) {
-      case 'above':
-        return Column(mainAxisSize: MainAxisSize.min, children: [dspIcon, label]);
-      case 'beside':
-        return Row(mainAxisSize: MainAxisSize.min, children: [dspIcon, SizedBox(width: 4), label]);
-      case 'only_text':
-        return label;
-      case 'only_icon':
-        return dspIcon;
-      default:
-        return Column(mainAxisSize: MainAxisSize.min, children: [dspIcon, label]);
-    }
-  }
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
@@ -561,32 +536,33 @@ class _MainHomeState extends State<MainHome> {
                         ),
 
                       // Chat Toggle Button
-                      Positioned(
-                        left: _dragPosition.dx,
-                        top: _dragPosition.dy,
-                        child: Draggable(
-                          feedback: chatToggleButton(isChatVisible, null),
-                          childWhenDragging: const SizedBox.shrink(),
-                          onDragEnd: (details) {
-                            setState(() {
-                              _dragPosition = Offset(
-                                details.offset.dx.clamp(
-                                  0.0,
-                                  MediaQuery.of(context).size.width - 60,
-                                ),
-                                details.offset.dy.clamp(
-                                  0.0,
-                                  MediaQuery.of(context).size.height - 60,
-                                ),
-                              );
-                            });
-                          },
-                          child: chatToggleButton(
-                            isChatVisible,
-                            () => setState(() => isChatVisible = !isChatVisible),
+                      if (isChatBot)
+                        Positioned(
+                          left: _dragPosition.dx,
+                          top: _dragPosition.dy,
+                          child: Draggable(
+                            feedback: chatToggleButton(isChatVisible, null),
+                            childWhenDragging: const SizedBox.shrink(),
+                            onDragEnd: (details) {
+                              setState(() {
+                                _dragPosition = Offset(
+                                  details.offset.dx.clamp(
+                                    0.0,
+                                    MediaQuery.of(context).size.width - 60,
+                                  ),
+                                  details.offset.dy.clamp(
+                                    0.0,
+                                    MediaQuery.of(context).size.height - 60,
+                                  ),
+                                );
+                              });
+                            },
+                            child: chatToggleButton(
+                              isChatVisible,
+                              () => setState(() => isChatVisible = !isChatVisible),
+                            ),
                           ),
                         ),
-                      ),
                     ],
                   );
                 },
@@ -596,29 +572,68 @@ class _MainHomeState extends State<MainHome> {
         ),
         bottomNavigationBar: isBottomMenu
             ? BottomAppBar(
-          color: _parseHexColor(widget.backgroundColor),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(bottomMenuItems.length, (index) {
-              final item = bottomMenuItems[index];
-              final isActive = _currentIndex == index;
+                color: _parseHexColor(widget.backgroundColor),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: List.generate(
+                    bottomMenuItems.length,
+                    (index) {
+                      final item = bottomMenuItems[index];
+                      final isActive = _currentIndex == index;
+                      
+                      return FutureBuilder<Widget>(
+                        future: buildMenuIcon(
+                          item,
+                          isActive,
+                          _parseHexColor(widget.activeTabColor),
+                          _parseHexColor(widget.iconColor),
+                        ),
+                        builder: (context, snapshot) {
+                          Widget icon = snapshot.data ?? const SizedBox(width: 24, height: 24);
+                          final label = Text(item['label'], style: _getMenuTextStyle(isActive));
+                          
+                          Widget menuItem;
+                          switch (widget.iconPosition) {
+                            case 'above':
+                              menuItem = Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [icon, label],
+                              );
+                            case 'beside':
+                              menuItem = Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [icon, const SizedBox(width: 4), label],
+                              );
+                            case 'only_text':
+                              menuItem = label;
+                            case 'only_icon':
+                              menuItem = icon;
+                            default:
+                              menuItem = Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [icon, label],
+                              );
+                          }
 
-              return GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _currentIndex = index;
-                    webViewController?.loadUrl(
-                      urlRequest: URLRequest(
-                        url: WebUri(item['url']),
-                      ),
-                    );
-                  });
-                },
-                child: _buildMenuItem(item, isActive),
-              );
-            }),
-          ),
-        )
+                          return GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _currentIndex = index;
+                                webViewController?.loadUrl(
+                                  urlRequest: URLRequest(
+                                    url: WebUri(item['url']),
+                                  ),
+                                );
+                              });
+                            },
+                            child: menuItem,
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              )
             : null,
       ),
     );
@@ -643,6 +658,52 @@ class _MainHomeState extends State<MainHome> {
         ),
       ):null,
     );
+  }
+
+  Future<Widget> buildMenuIcon(Map<String, dynamic> item, bool isActive, Color activeColor, Color defaultColor) async {
+    final iconData = item['icon'];
+    if (iconData == null) return Icon(Icons.error);
+
+    if (iconData['type'] == 'preset') {
+      return Icon(
+        _getIconByName(iconData['name'] ?? ''),
+        color: isActive ? activeColor : defaultColor,
+      );
+    }
+
+    if (iconData['type'] == 'custom' && iconData['icon_url'] != null) {
+      final labelSanitized = (item['label'] as String).toLowerCase().replaceAll(RegExp(r'\s+'), '_');
+      final fileName = '$labelSanitized.svg';
+
+      final dir = await getApplicationSupportDirectory();
+      final filePath = '${dir.path}/$fileName';
+      final file = File(filePath);
+
+      if (!await file.exists()) {
+        try {
+          final response = await http.get(Uri.parse(iconData['icon_url']));
+          if (response.statusCode == 200) {
+            await file.writeAsBytes(response.bodyBytes);
+          } else {
+            debugPrint('Failed to download SVG for ${item['label']}');
+            return Icon(Icons.broken_image);
+          }
+        } catch (e) {
+          debugPrint('Error downloading SVG: $e');
+          return Icon(Icons.broken_image);
+        }
+      }
+
+      return SvgPicture.file(
+        file,
+        width: double.tryParse(iconData['icon_size'] ?? '24') ?? 24,
+        height: double.tryParse(iconData['icon_size'] ?? '24') ?? 24,
+        colorFilter: ColorFilter.mode(isActive ? activeColor : defaultColor, BlendMode.srcIn),
+        placeholderBuilder: (_) => Icon(Icons.image_not_supported),
+      );
+    }
+
+    return Icon(Icons.help_outline);
   }
 }
 

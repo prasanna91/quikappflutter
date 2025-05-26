@@ -623,29 +623,30 @@ class _MainHomeState extends State<MainHome> {
       ),
     );
   }
+  Widget chatToggleButton(bool isVisible, VoidCallback? onPressed) {
+    return SizedBox(
+      height: 60,
+      width: 60,
+      child: isChatBot == true ?ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          shape: const CircleBorder(),
+          backgroundColor: isVisible ? Colors.red : Colors.indigo,
+          padding: const EdgeInsets.all(12),
+          elevation: 6,
+          shadowColor: Colors.black54,
+        ),
+        child: Icon(
+          isVisible ? Icons.chat : Icons.chat_bubble_outline,
+          color: Colors.white,
+          size: 25,
+        ),
+      ):null,
+    );
+  }
 }
 
-Widget chatToggleButton(bool isVisible, VoidCallback? onPressed) {
-  return SizedBox(
-    height: 60,
-    width: 60,
-    child: ElevatedButton(
-      onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        shape: const CircleBorder(),
-        backgroundColor: isVisible ? Colors.red : Colors.indigo,
-        padding: const EdgeInsets.all(12),
-        elevation: 6,
-        shadowColor: Colors.black54,
-      ),
-      child: Icon(
-        isVisible ? Icons.chat : Icons.chat_bubble_outline,
-        color: Colors.white,
-        size: 25,
-      ),
-    ),
-  );
-}
+
 
 List<Map<String, dynamic>> parseBottomMenuItems(String raw) {
   try {

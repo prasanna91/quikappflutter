@@ -51,7 +51,7 @@ class _MainHomeState extends State<MainHome> {
   final double BMFontSize = double.tryParse( String.fromEnvironment('BOTTOMMENU_FONT_SIZE', defaultValue: "14")) ?? 12;
   final bool BMisBold =  bool.fromEnvironment('BOTTOMMENU_FONT_BOLD', defaultValue: false);
   final bool BMisItalic =  bool.fromEnvironment('BOTTOMMENU_FONT_ITALIC', defaultValue: true);
-  final bool isChatBot =  bool.fromEnvironment('IS_CHATBOT', defaultValue: false);
+  final bool isChatBot =  bool.fromEnvironment('IS_CHATBOT', defaultValue: true);
   late bool isBottomMenu;
 
   // final Color taglineColor = _parseHexColor(const String.fromEnvironment('SPLASH_TAGLINE_COLOR', defaultValue: "#000000"));

@@ -48,6 +48,8 @@ dependencies:
   http: ^1.4.0
   google_fonts: ^6.2.1
   material_symbols_icons: ^4.2815.0
+  html: ^0.15.4
+  shared_preferences: ^2.2.2
 
 dev_dependencies:
   flutter_test:

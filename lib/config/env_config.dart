@@ -72,7 +72,7 @@ const String bottomMenuRaw = String.fromEnvironment(
 final List<Map<String, dynamic>> bottomMenuItems =
 (jsonDecode(bottomMenuRaw) as List).map((e) => Map<String, dynamic>.from(e)).toList();
 
-const String bottomMenuBgColor = String.fromEnvironment('BOTTOMMENU_BG_COLOR', defaultValue: '#f0f0f0');
+const String bottomMenuBgColor = String.fromEnvironment('BOTTOMMENU_BG_COLOR', defaultValue: '#f0f0e0');
 const String bottomMenuIconColor = String.fromEnvironment('BOTTOMMENU_ICON_COLOR', defaultValue: '#888888');
 const String bottomMenuTextColor = String.fromEnvironment('BOTTOMMENU_TEXT_COLOR', defaultValue: '#000000');
 const String bottomMenuActiveTabColor = String.fromEnvironment('BOTTOMMENU_ACTIVE_TAB_COLOR', defaultValue: '#FF2D55');
